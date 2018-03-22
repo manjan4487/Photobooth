@@ -17,6 +17,17 @@ CAMERA_DSLR = 1
 # CAMERA can be either CAMERA_PI or CAMERA_DSLR
 CAMERA = CAMERA_DSLR
 
+# Defines the timing of changing the ImageView in the slideshow in milliseconds
+PHOTO_CHANGE_TIME = 4000
+
+SCREEN_RESOLUTION = (1920,1080) # (height,width)
+
+# folder path, where new pictures will be saved
+PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
+
+# folder path, where corrupted pictures will be moved to such that never a picture could be erased in failure case
+TEMP_TRASH_FOLDER = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
+
 # countdown that ticks down when button/event was pressed/occured
 COUNTDOWN_S = 0
 
@@ -49,16 +60,9 @@ else:
 
 class Fullscreen_Window:
 
-    image_list = []
-    PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/*.jpg' # change it to your own location!
-    folder = '/home/pi/Desktop/fotoboxImages/'
-    tempTrashFolder = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
-    PHOTO_CHANGE_TIME = 4000 # Defines the timing of changing the ImageView in milliseconds
-    SCREEN_RESOLUTION = (1920,1080) # (height,width)
-    
+    image_list = []    
     lockVar = False
     takePictureVar = False
-
 
     def __init__(self):
         self.tk = Tk()
@@ -91,7 +95,7 @@ class Fullscreen_Window:
     def update_ImageListForRandPreview(self):
         if not self.lockVar:
             # Get all Images in photoPath
-            for filename in glob.glob(self.PHOTO_PATH):
+            for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
                 
                     self.im=PIL.Image.open(filename)
                     self.image_list.append(self.im.filename)
@@ -102,7 +106,7 @@ class Fullscreen_Window:
             self.randomnumber = randint(0, len(self.image_list)-1)
             
             #Resize Image, so all Images have the same size
-            self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), self.SCREEN_RESOLUTION)
+            self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), SCREEN_RESOLUTION)
             #Load the resized Image with PhotoImage
             self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
             #Put the image into the Panel object
@@ -111,17 +115,17 @@ class Fullscreen_Window:
             self.panel.pack(side = "bottom", fill = "both", expand = "yes")
 
         #Update Timer
-        self.tk.after(self.PHOTO_CHANGE_TIME, self.update_ImageListForRandPreview)
+        self.tk.after(PHOTO_CHANGE_TIME, self.update_ImageListForRandPreview)
 
     def camTask(self):
         print("Photobooth v%s started" % VERSION)
         
         # do some initialization stuff
         # check if the folders already exist
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
-        if not os.path.exists(self.tempTrashFolder):
-            os.makedirs(self.tempTrashFolder)
+        if not os.path.exists(PHOTO_PATH):
+            os.makedirs(PHOTO_PATH)
+        if not os.path.exists(TEMP_TRASH_FOLDER):
+            os.makedirs(TEMP_TRASH_FOLDER)
         
         photoCount = 1
         
@@ -177,12 +181,12 @@ class Fullscreen_Window:
             now = time.strftime("%Y%m%d_%H-%M-%S")
             
             file = "%s_NUM_%s.jpg" % (now,photoCount)
-            imgPath = "%s%s" % (self.folder,file)
+            imgPath = "%s%s" % (PHOTO_PATH,file)
             
             if CAMERA == CAMERA_PI:
                 mycam.annotate_text_size=96
 
-                mycam.start_preview(resolution=(self.SCREEN_RESOLUTION))
+                mycam.start_preview(resolution=(SCREEN_RESOLUTION))
             elif CAMERA == CAMERA_DSLR:
                 sleep(0.1)
                 
@@ -221,7 +225,7 @@ class Fullscreen_Window:
                     # TODO show a notice on the screen (overlay)
                     
                     # be sure that there is no corrupted image file, so move the file to temporary trash
-                    tempTrashPath = "%sTRASH_%s" % (self.tempTrashFolder, file)
+                    tempTrashPath = "%sTRASH_%s" % (TEMP_TRASH_FOLDER, file)
                     os.rename(imgPath, tempTrashPath)
                 
             sleep(0.1)
