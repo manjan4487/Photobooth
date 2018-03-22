@@ -28,8 +28,11 @@ PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
 # folder path, where corrupted pictures will be moved to such that never a picture could be erased in failure case
 TEMP_TRASH_FOLDER = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
 
-# countdown that ticks down when button/event was pressed/occured
+# countdown that ticks down when button/event was pressed/occured (in s)
 COUNTDOWN_S = 0
+
+# time between two digits of the countdown (in s)
+DELAY_BETWEEN_COUNTDOWN = 0.9
 
 ##### edit stop
 
@@ -63,6 +66,7 @@ class Fullscreen_Window:
     image_list = []    
     lockVar = False
     takePictureVar = False
+    camera = 0;
 
     def __init__(self):
         self.tk = Tk()
@@ -76,6 +80,21 @@ class Fullscreen_Window:
         self.panel = Label(self.tk)#
         self.panel.pack(side = "bottom", fill = "both", expand = "yes")
         self.update_ImageListForRandPreview()
+        
+        if CAMERA == CAMERA_DSLR:
+            # configure gphoto logging
+            logging.basicConfig(format='%(levelname)s: %(name)s: %(message)s', level=logging.WARNING)
+            gp.check_result(gp.use_python_logging())
+            self.checkForCameraDslr() # start periodical called function# TODO bei DSLRs mit LivePreview diese Vorschau hier einbinden
+
+        print("Photobooth v%s started" % VERSION)
+        
+        # check if the folders already exist
+        if not os.path.exists(PHOTO_PATH):
+            os.makedirs(PHOTO_PATH)
+        if not os.path.exists(TEMP_TRASH_FOLDER):
+            os.makedirs(TEMP_TRASH_FOLDER)
+        
         self.tk.mainloop()
         
     def take_picture(self, event=None):
@@ -118,18 +137,8 @@ class Fullscreen_Window:
         self.tk.after(PHOTO_CHANGE_TIME, self.update_ImageListForRandPreview)
 
     def camTask(self):
-        print("Photobooth v%s started" % VERSION)
         
-        # do some initialization stuff
-        # check if the folders already exist
-        if not os.path.exists(PHOTO_PATH):
-            os.makedirs(PHOTO_PATH)
-        if not os.path.exists(TEMP_TRASH_FOLDER):
-            os.makedirs(TEMP_TRASH_FOLDER)
-        
-        photoCount = 1
-        
-        if CAMERA == CAMERA_PI:
+        if CAMERA == CAMERA_PI: # TODO in init function packen
             mycam = PiCamera()
 
             #Setup camera parameters
@@ -151,36 +160,19 @@ class Fullscreen_Window:
             mycam.hflip = True
             mycam.vflip = True
             mycam.crop = (0.0, 0.0, 1.0, 1.0)
-        elif CAMERA == CAMERA_DSLR:
-            # configure gphoto loggin
-            logging.basicConfig(format='%(levelname)s: %(name)s: %(message)s', level=logging.WARNING)
-            gp.check_result(gp.use_python_logging())
-            camera = gp.check_result(gp.gp_camera_new())
-            gp.check_result(gp.gp_camera_init(camera))
-            text = gp.check_result(gp.gp_camera_get_summary(camera))
-            
-            print('Summary')
-            print('=======')
-            print(text.text)
-            
-            # TODO man könnte periodisch testen, ob eine Kamera
-            # angeschlossen ist und diese dann ggf. initialisieren
-            # dann lässt sich das System auch gestartet noch weiter verwenden
-            # (vor allem falls der Akku zwischenzeitlich mal getauscht werden muss!)
-            # und dann natürlich auch mit exception abfangen!
 
         while 1:
             
             #button_takePhoto.wait_for_press()
             while self.takePictureVar is not True:
-                sleep(0.2)
+                sleep(0.1)
 
             # setze globale Variable zurueck 
             self.takePictureVar = False
             
             now = time.strftime("%Y%m%d_%H-%M-%S")
             
-            file = "%s_NUM_%s.jpg" % (now,photoCount)
+            file = "%s.jpg" % now
             imgPath = "%s%s" % (PHOTO_PATH,file)
             
             if CAMERA == CAMERA_PI:
@@ -188,26 +180,41 @@ class Fullscreen_Window:
 
                 mycam.start_preview(resolution=(SCREEN_RESOLUTION))
             elif CAMERA == CAMERA_DSLR:
-                sleep(0.1)
-                
-                # TODO bei DSLRs mit LivePreview diese Vorschau hier einbinden
+                try:
+                    self.camera = gp.check_result(gp.gp_camera_new())
+                    gp.check_result(gp.gp_camera_init(self.camera))
+                    #text = gp.check_result(gp.gp_camera_get_summary(self.camera))
+                    dslr_livepreview = False # TODO: prüfen, ob livepreview available ist
+                    if dslr_livepreview:
+                        pass # TODO start livepreview
+                except:
+                    print('Could not find any DSLR camera')
+                    # TODO auch dem Nutzer anzeigen! Overlay?!
 
             for i in range(COUNTDOWN_S):
-                if CAMERA == CAMERA_PI:
-                    mycam.annotate_text = "%s" % (COUNTDOWN_S-1-i)
-                elif CAMERA == CAMERA_DSLR:
-                    sleep(0.1)
-                    
-                    # TODO zeige hier auf einem zu definierenden Hintergrund den Countdown an
-                    # (falls kein LivePreview verfügbar ist)
-                    
                 i = i-1
-                sleep(1)
                 
+                if CAMERA == CAMERA_PI:
+                    mycam.annotate_text = "%s" % (COUNTDOWN_S-i)
+                    
+                    # Pi camera captures image immediately, so we can wait the complete countdown
+                    sleep(DELAY_BETWEEN_COUNTDOWN)
+                elif CAMERA == CAMERA_DSLR:
+                    if dslr_livepreview:
+                        pass # TODO
+                    else: # show defined background picture
+                        #self.panel.configure(image = self.resizedImg)
+                        # TODO TODO TODO
+                        pass # TODO
+                    
+                    # dslr cameras need a little to capture image, so skip the last delay
+                    if i != 0:
+                        sleep(DELAY_BETWEEN_COUNTDOWN)
+            
             if CAMERA == CAMERA_PI:
                 mycam.annotate_text = ""
             elif CAMERA == CAMERA_DSLR:
-                sleep(0.1) # TODO
+                pass # TODO
                 
             self.lockVar = True
             myfile = open(imgPath,'wb')
@@ -216,29 +223,26 @@ class Fullscreen_Window:
                 mycam.capture(myfile,format='jpeg',quality=100,thumbnail=(64,48,35))
             elif CAMERA == CAMERA_DSLR:
                 try:
-                    cameraFilePath = gp.check_result(gp.gp_camera_capture(camera, gp.GP_CAPTURE_IMAGE))
-                    cameraFile = gp.check_result(gp.gp_camera_file_get(camera, cameraFilePath.folder, cameraFilePath.name, gp.GP_FILE_TYPE_NORMAL))
+                    cameraFilePath = gp.check_result(gp.gp_camera_capture(self.camera, gp.GP_CAPTURE_IMAGE))
+                    cameraFile = gp.check_result(gp.gp_camera_file_get(self.camera, cameraFilePath.folder, cameraFilePath.name, gp.GP_FILE_TYPE_NORMAL))
                     gp.check_result(gp.gp_file_save(cameraFile, imgPath))
                 except gp.GPhoto2Error:
                     print("Could not capture image!")
-                    
                     # TODO show a notice on the screen (overlay)
                     
                     # be sure that there is no corrupted image file, so move the file to temporary trash
                     tempTrashPath = "%sTRASH_%s" % (TEMP_TRASH_FOLDER, file)
                     os.rename(imgPath, tempTrashPath)
                 
-            sleep(0.1)
             myfile.close()
             self.lockVar = False
             
             if CAMERA == CAMERA_PI:
                 mycam.stop_preview()
             elif CAMERA == CAMERA_DSLR:
-                sleep(0.1)
+                pass
                 # TODO ggf. die livePreview stoppen
             
-            photoCount = photoCount +1
 
 if __name__ == '__main__':
 
