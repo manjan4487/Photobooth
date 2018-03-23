@@ -17,10 +17,10 @@ CAMERA_DSLR = 1
 # CAMERA can be either CAMERA_PI or CAMERA_DSLR
 CAMERA = CAMERA_DSLR
 
-# Defines the timing of changing the ImageView in the slideshow in milliseconds
-PHOTO_CHANGE_TIME = 4000
+# Defines the timing of changing the ImageView in the slideshow in seconds
+SLIDESHOW_CHANGE_TIME_S = 4
 
-SCREEN_RESOLUTION = (1920,1080) # (height,width)
+SCREEN_RESOLUTION = (1280,960) #(1920,1080) # (height,width)
 
 # folder path, where new pictures will be saved
 PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
@@ -43,8 +43,30 @@ TRY_TO_USE_LIVE_PREVIEW = False
 # background image to show if there is no live preview shown
 BACKGROUND_PICTURE = '/home/pi/Desktop/Photobooth/images/Background_Coo.jpg'
 
+# activates a grayscale effect on the background image
+BACKGROUND_EFFECT_GRAYSCALE = True
+
 ##### edit stop
 
+##### DEVELOPER EDIT START #####
+# refresh time to check if we need to set a new picture to the front
+PERIOD_PICTURE_REFRESH = 50 # in ms
+
+##### developer edit stop
+
+##### CONSTANTS #####
+STATE_SLIDESHOW_IDLE         = 0
+STATE_SLIDESHOW_BACKGROUND   = 1
+STATE_SLIDESHOW_CAPTURED_IMG = 2
+
+IMAGE_COUNTDOWN_5 = '/home/pi/Desktop/Photobooth/images/Countdown_5.png'
+IMAGE_COUNTDOWN_4 = '/home/pi/Desktop/Photobooth/images/Countdown_4.png'
+IMAGE_COUNTDOWN_3 = '/home/pi/Desktop/Photobooth/images/Countdown_3.png'
+IMAGE_COUNTDOWN_2 = '/home/pi/Desktop/Photobooth/images/Countdown_2.png'
+IMAGE_COUNTDOWN_1 = '/home/pi/Desktop/Photobooth/images/Countdown_1.png'
+
+COUNTDOWN_WIDTH_FACTOR = 1.5
+COUNTDOWN_HEIGHT_FACTOR = 1.5
 
 from tkinter import *
 import PIL.Image
@@ -61,7 +83,6 @@ if CAMERA == CAMERA_PI:
     from picamera import PiCamera
 elif CAMERA == CAMERA_DSLR:
     import gphoto2 as gp
-from time import sleep
 import time
 
 if sys.version_info[0] == 2:  # Just checking your Python version to import Tkinter properly.
@@ -75,8 +96,9 @@ class Fullscreen_Window:
     image_list = []    
     lockVar = False
     takePictureVar = False
-    camera = 0;
-    livepreview = False
+    StateSlideshow = STATE_SLIDESHOW_IDLE
+    Countdown = 0
+    LastSlide = 0
 
     def __init__(self):
         self.tk = Tk()
@@ -107,9 +129,9 @@ class Fullscreen_Window:
         
         self.tk.mainloop()
         
-    def take_picture(self, event=None):
+    def take_picture(self, event=None): # gets called by button-1 (left mouse button)
         Fullscreen_Window.takePictureVar = True
-        return "break"
+        return "break" # TODO umschaltbar machen zwischen GPIO button und maus taste
     
     def toggle_fullscreen(self, event=None):
         self.state = not self.state
@@ -122,33 +144,74 @@ class Fullscreen_Window:
         return "break"
         
     def update_ImageListForRandPreview(self):
-        # TODO: hier statemachine reinbringen
-        # mit SLIDESHOW, PREVIEW_OR_BACKGROUND (oder immer background), SHOW_CAPUTRED_IMAGE
-        if not self.lockVar:
-            # Get all Images in photoPath
-            for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
+        if self.StateSlideshow == STATE_SLIDESHOW_IDLE: # show slideshow
+            now = time.time()
+            if now - self.LastSlide > SLIDESHOW_CHANGE_TIME_S:
+                if not self.lockVar:
+                    # Get all Images in photoPath
+                    for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
+                        self.im=PIL.Image.open(filename)
+                        self.image_list.append(self.im.filename)
+                        
+                if len(self.image_list) > 0:
+                    # Calc. random number for Image which has to be shown
+                    self.randomnumber = randint(0, len(self.image_list)-1)
+                    
+                    #Resize Image, so all Images have the same size
+                    self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), SCREEN_RESOLUTION)
+                    #Load the resized Image with PhotoImage
+                    self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
+                    #Put the image into the Panel object
+                    self.panel.configure(image = self.resizedImg)
+                    #Maximize the Panel View
+                    self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+                    
+                self.LastSlide = time.time() # store time for next iteration
                 
-                    self.im=PIL.Image.open(filename)
-                    self.image_list.append(self.im.filename)
-                
-        if len(self.image_list) > 0:
-            
-            # Calc. random number for Image which has to be shown
-            self.randomnumber = randint(0, len(self.image_list)-1)
-            
+        elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background
             #Resize Image, so all Images have the same size
-            self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), SCREEN_RESOLUTION)
+            self.resizedImg = ImageOps.fit(PIL.Image.open(BACKGROUND_PICTURE), SCREEN_RESOLUTION)
+            
+            if BACKGROUND_EFFECT_GRAYSCALE: # may use a grayscale effect
+                self.resizedImg = ImageOps.grayscale(self.resizedImg)
+            
+            numberPic = 0
+            
+            # nun den Countdown einblenden
+            if self.Countdown == 5:
+                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_5)
+            elif self.Countdown == 4:
+                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_4)
+            elif self.Countdown == 3:
+                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_3)
+            elif self.Countdown == 2:
+                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_2)
+            elif self.Countdown == 1:
+                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_1)
+            else:
+                pass # no image overlay
+            
+            if numberPic == 0:
+                pass # disable overlay, so do nothing here
+            else:
+                numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
+                self.resizedImg.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2),int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_HEIGHT_FACTOR/2)), numberPic)
+                
             #Load the resized Image with PhotoImage
             self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
             #Put the image into the Panel object
             self.panel.configure(image = self.resizedImg)
             #Maximize the Panel View
-            self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+            self.panel.pack(side = "bottom", fill = "both", expand = "yes")#self.panel.configure(image = self.resizedImg)
+                
+        elif self.StateSlideshow == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
+            pass # TODO
 
         #Update Timer
-        self.tk.after(PHOTO_CHANGE_TIME, self.update_ImageListForRandPreview)
+        self.tk.after(PERIOD_PICTURE_REFRESH, self.update_ImageListForRandPreview)
 
     def camTask(self):
+        livepreview = False
         
         if CAMERA == CAMERA_PI: # TODO in init function packen
             mycam = PiCamera()
@@ -173,16 +236,16 @@ class Fullscreen_Window:
             mycam.vflip = True
             mycam.crop = (0.0, 0.0, 1.0, 1.0)
             
-            self.livepreview = True
+            livepreview = True
             
         elif CAMERA == CAMERA_DSLR:
-            self.livepreview = False # false by default. Only a few cameras support live preview
+            livepreview = False # false by default. Only a few cameras support live preview
 
         while 1:
             
             #button_takePhoto.wait_for_press()
             while self.takePictureVar is not True:
-                sleep(0.1)
+                time.sleep(0.1)
 
             # setze globale Variable zurueck 
             self.takePictureVar = False
@@ -207,8 +270,11 @@ class Fullscreen_Window:
             ###### CHECK IF WE NEED TO SHOW LIVE PREVIEW OR BACKGROUND
             livepreviewavailable = False
             if TRY_TO_USE_LIVE_PREVIEW:
-                if self.livepreview:
+                if livepreview:
                     livepreviewavailable = True
+                    
+            # change the shown picture to the background
+            self.StateSlideshow = STATE_SLIDESHOW_BACKGROUND
             
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
             # TODO über andren thread lösen
@@ -224,17 +290,16 @@ class Fullscreen_Window:
 
             ###### COUNTDOWN LOOP
             for i in range(COUNTDOWN_S):
-                i = i-1
                         
                 if livepreviewavailable:
                     if CAMERA == CAMERA_PI:
-                        mycam.annotate_text = "%s" % (COUNTDOWN_S-i)
+                        mycam.annotate_text = "%s" % (COUNTDOWN_S - i)
                     elif CAMERA == CAMERA_DSLR:
                         pass # TODO
-                else: # show defined background picture
-                    #self.panel.configure(image = self.resizedImg)
-                    # TODO TODO TODO
-                    pass # TODO
+                else: # background is displayed by other thread
+                    self.Countdown = COUNTDOWN_S - i # just set the used countdown
+                    
+                i = i-1
                     
                 # handle the delay per iteration
                 if CAMERA == CAMERA_PI:
@@ -243,7 +308,7 @@ class Fullscreen_Window:
                 elif CAMERA == CAMERA_DSLR:
                     # dslr cameras need a little to capture image, so skip the last delay
                     if i != 0:
-                        sleep(DELAY_BETWEEN_COUNTDOWN)
+                        time.sleep(DELAY_BETWEEN_COUNTDOWN)
             
             ###### POST LIVE PREVIEW
             if livepreviewavailable:
@@ -280,9 +345,11 @@ class Fullscreen_Window:
                     pass # TODO ggf. die livePreview stoppen
             
             ###### SHOW THE CAPUTRED IMAGE
-            # TODO über andren thread und dessen state machine lösen
+            self.StateSlideshow = STATE_SLIDESHOW_CAPTURED_IMG
+            time.sleep(TIME_TO_SHOW_CAPTURED_IMAGE)
             
-            sleep(TIME_TO_SHOW_CAPTURED_IMAGE)
+            ###### CONTINUE WITH SLIDESHOW
+            self.StateSlideshow = STATE_SLIDESHOW_IDLE
         
 if __name__ == '__main__':
 
