@@ -77,7 +77,6 @@ class Fullscreen_Window:
     takePictureVar = False
     camera = 0;
     livepreview = False
-    pauseSlideShow = False
 
     def __init__(self):
         self.tk = Tk()
@@ -123,27 +122,28 @@ class Fullscreen_Window:
         return "break"
         
     def update_ImageListForRandPreview(self):
-        if not self.pauseSlideShow:
-            if not self.lockVar:
-                # Get all Images in photoPath
-                for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
-                    
-                        self.im=PIL.Image.open(filename)
-                        self.image_list.append(self.im.filename)
-                    
-            if len(self.image_list) > 0:
+        # TODO: hier statemachine reinbringen
+        # mit SLIDESHOW, PREVIEW_OR_BACKGROUND (oder immer background), SHOW_CAPUTRED_IMAGE
+        if not self.lockVar:
+            # Get all Images in photoPath
+            for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
                 
-                # Calc. random number for Image which has to be shown
-                self.randomnumber = randint(0, len(self.image_list)-1)
+                    self.im=PIL.Image.open(filename)
+                    self.image_list.append(self.im.filename)
                 
-                #Resize Image, so all Images have the same size
-                self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), SCREEN_RESOLUTION)
-                #Load the resized Image with PhotoImage
-                self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                #Put the image into the Panel object
-                self.panel.configure(image = self.resizedImg)
-                #Maximize the Panel View
-                self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+        if len(self.image_list) > 0:
+            
+            # Calc. random number for Image which has to be shown
+            self.randomnumber = randint(0, len(self.image_list)-1)
+            
+            #Resize Image, so all Images have the same size
+            self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), SCREEN_RESOLUTION)
+            #Load the resized Image with PhotoImage
+            self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
+            #Put the image into the Panel object
+            self.panel.configure(image = self.resizedImg)
+            #Maximize the Panel View
+            self.panel.pack(side = "bottom", fill = "both", expand = "yes")
 
         #Update Timer
         self.tk.after(PHOTO_CHANGE_TIME, self.update_ImageListForRandPreview)
@@ -211,7 +211,7 @@ class Fullscreen_Window:
                     livepreviewavailable = True
             
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
-            self.pauseSlideShow = True # pause the slide show for the countdown and preview
+            # TODO über andren thread lösen
             if livepreviewavailable:
                 if CAMERA == CAMERA_PI:
                     mycam.annotate_text_size=96
@@ -219,15 +219,8 @@ class Fullscreen_Window:
                 elif CAMERA == CAMERA_DSLR:
                     pass # TODO start live preview
             else:
-                picture = PIL.Image.open(BACKGROUND_PICTURE)
-                # Resize image
-               # self.resizedImg = ImageOps.fit(picture, SCREEN_RESOLUTION)
-                # Load the resized Image with PhotoImage
-                self.resizedImg = PIL.ImageTk.PhotoImage(picture)
-                # Put the image into the Panel object
-                self.panel.configure(image = self.resizedImg)
-                # Maximize the Panel View
-                self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+                # picture = PIL.Image.open(BACKGROUND_PICTURE)
+                pass # TODO über andren thread lösen
 
             ###### COUNTDOWN LOOP
             for i in range(COUNTDOWN_S):
@@ -287,19 +280,10 @@ class Fullscreen_Window:
                     pass # TODO ggf. die livePreview stoppen
             
             ###### SHOW THE CAPUTRED IMAGE
-            self.resizedImg = ImageOps.fit(PIL.Image.open(imgPath), SCREEN_RESOLUTION)
-            #Load the resized Image with PhotoImage
-            self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-            #Put the image into the Panel object
-            self.panel.configure(image = self.resizedImg)
-            #Maximize the Panel View
-            self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+            # TODO über andren thread und dessen state machine lösen
             
             sleep(TIME_TO_SHOW_CAPTURED_IMAGE)
         
-            self.pauseSlideShow = False # continue the slideshow
-            
-
 if __name__ == '__main__':
 
     try:
