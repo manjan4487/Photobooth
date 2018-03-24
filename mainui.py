@@ -29,19 +29,26 @@ PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
 TEMP_TRASH_FOLDER = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
 
 # countdown that ticks down when button/event was pressed/occured (in s)
-COUNTDOWN_S = 5
+COUNTDOWN_S = 5 # e.g. 5 means countdown goes in range [4,3,2,1,0]
+
+# choose a countdown style. Style name is used in PNG files like "Countdown_%s_x.png" % COUNTDOWN_STYLE, see COUNTDOWN_FORMAT
+# You can create your own style: name the new files with the style name you have chosen here
+COUNTDOWN_STYLE = 'classic'
+
+# the folder with the countdown images
+COUNTDOWN_IMAGE_FOLDER = '/home/pi/Desktop/Photobooth/images/countdown/'
 
 # the time that a captured image is displayed until the slideshow continues
-TIME_TO_SHOW_CAPTURED_IMAGE = 5
+TIME_TO_SHOW_CAPTURED_IMAGE = 8
 
 # time between two digits of the countdown (in s)
-DELAY_BETWEEN_COUNTDOWN = 0.9
+DELAY_BETWEEN_COUNTDOWN = 1
 
 # define if the live preview should be used if available (Pi Cam and a few DSLR cameras support live preview)
 TRY_TO_USE_LIVE_PREVIEW = False
 
 # background image to show if there is no live preview shown
-BACKGROUND_PICTURE = '/home/pi/Desktop/Photobooth/images/Background_Coo.jpg'
+BACKGROUND_PICTURE = '/home/pi/Desktop/Photobooth/images/background/Background_Coo.jpg'
 
 # activates a grayscale effect on the background image
 BACKGROUND_EFFECT_GRAYSCALE = True
@@ -50,7 +57,15 @@ BACKGROUND_EFFECT_GRAYSCALE = True
 
 ##### DEVELOPER EDIT START #####
 # refresh time to check if we need to set a new picture to the front
-PERIOD_PICTURE_REFRESH = 50 # in ms
+PERIOD_PICTURE_REFRESH = 15 # in ms
+
+# file format used to find the countdown pictures
+# first argument has to be the COUNTDOWN_STYLE and the second the number of the countdown
+COUNTDOWN_FORMAT = '%sCountdown_%s_%s.png' # % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE,i)
+
+# time difference to the delay between two countdown iterations to refresh the display
+# value was found by testing
+COUNTDOWN_REFRESH_DELTA = 0.4
 
 ##### developer edit stop
 
@@ -58,12 +73,6 @@ PERIOD_PICTURE_REFRESH = 50 # in ms
 STATE_SLIDESHOW_IDLE         = 0
 STATE_SLIDESHOW_BACKGROUND   = 1
 STATE_SLIDESHOW_CAPTURED_IMG = 2
-
-IMAGE_COUNTDOWN_5 = '/home/pi/Desktop/Photobooth/images/Countdown_5.png'
-IMAGE_COUNTDOWN_4 = '/home/pi/Desktop/Photobooth/images/Countdown_4.png'
-IMAGE_COUNTDOWN_3 = '/home/pi/Desktop/Photobooth/images/Countdown_3.png'
-IMAGE_COUNTDOWN_2 = '/home/pi/Desktop/Photobooth/images/Countdown_2.png'
-IMAGE_COUNTDOWN_1 = '/home/pi/Desktop/Photobooth/images/Countdown_1.png'
 
 COUNTDOWN_WIDTH_FACTOR = 1.5
 COUNTDOWN_HEIGHT_FACTOR = 1.5
@@ -98,7 +107,9 @@ class Fullscreen_Window:
     takePictureVar = False
     StateSlideshow = STATE_SLIDESHOW_IDLE
     Countdown = 0
-    LastSlide = 0
+    LastChangeTimeSlideshow = 0
+    LastChangeTimeCountdown = 0
+    CapturedImage = 0
 
     def __init__(self):
         self.tk = Tk()
@@ -146,7 +157,7 @@ class Fullscreen_Window:
     def update_ImageListForRandPreview(self):
         if self.StateSlideshow == STATE_SLIDESHOW_IDLE: # show slideshow
             now = time.time()
-            if now - self.LastSlide > SLIDESHOW_CHANGE_TIME_S:
+            if now - self.LastChangeTimeSlideshow > SLIDESHOW_CHANGE_TIME_S:
                 if not self.lockVar:
                     # Get all Images in photoPath
                     for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
@@ -166,46 +177,41 @@ class Fullscreen_Window:
                     #Maximize the Panel View
                     self.panel.pack(side = "bottom", fill = "both", expand = "yes")
                     
-                self.LastSlide = time.time() # store time for next iteration
+                self.LastChangeTimeSlideshow = time.time() # store time for next iteration
                 
         elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background
-            #Resize Image, so all Images have the same size
-            self.resizedImg = ImageOps.fit(PIL.Image.open(BACKGROUND_PICTURE), SCREEN_RESOLUTION)
-            
-            if BACKGROUND_EFFECT_GRAYSCALE: # may use a grayscale effect
-                self.resizedImg = ImageOps.grayscale(self.resizedImg)
-            
-            numberPic = 0
-            
-            # nun den Countdown einblenden
-            if self.Countdown == 5:
-                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_5)
-            elif self.Countdown == 4:
-                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_4)
-            elif self.Countdown == 3:
-                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_3)
-            elif self.Countdown == 2:
-                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_2)
-            elif self.Countdown == 1:
-                numberPic = PIL.Image.open(IMAGE_COUNTDOWN_1)
-            else:
-                pass # no image overlay
-            
-            if numberPic == 0:
-                pass # disable overlay, so do nothing here
-            else:
+            now = time.time()
+            if now - self.LastChangeTimeCountdown > (DELAY_BETWEEN_COUNTDOWN - COUNTDOWN_REFRESH_DELTA):
+                #Resize Image, so all Images have the same size
+                self.resizedImg = ImageOps.fit(PIL.Image.open(BACKGROUND_PICTURE), SCREEN_RESOLUTION)
+                
+                if BACKGROUND_EFFECT_GRAYSCALE: # may use a grayscale effect
+                    self.resizedImg = ImageOps.grayscale(self.resizedImg)
+                
+                # nun den Countdown einblenden
+                numberPic = PIL.Image.open(COUNTDOWN_FORMAT % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE,self.Countdown))
                 numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
                 self.resizedImg.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2),int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_HEIGHT_FACTOR/2)), numberPic)
+                    
+                #Load the resized Image with PhotoImage
+                self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
+                #Put the image into the Panel object
+                self.panel.configure(image = self.resizedImg)
+                #Maximize the Panel View
+                self.panel.pack(side = "bottom", fill = "both", expand = "yes")
                 
-            #Load the resized Image with PhotoImage
-            self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-            #Put the image into the Panel object
-            self.panel.configure(image = self.resizedImg)
-            #Maximize the Panel View
-            self.panel.pack(side = "bottom", fill = "both", expand = "yes")#self.panel.configure(image = self.resizedImg)
+                self.LastChangeTimeCountdown = time.time() # store time for next iteration
                 
         elif self.StateSlideshow == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
-            pass # TODO
+            if self.CapturedImage != 0: # if a picture was captured
+                #Resize Image, so all Images have the same size
+                self.resizedImg = ImageOps.fit(PIL.Image.open(self.CapturedImage), SCREEN_RESOLUTION)
+                #Load the resized Image with PhotoImage
+                self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
+                #Put the image into the Panel object
+                self.panel.configure(image = self.resizedImg)
+                #Maximize the Panel View
+                self.panel.pack(side = "bottom", fill = "both", expand = "yes")
 
         #Update Timer
         self.tk.after(PERIOD_PICTURE_REFRESH, self.update_ImageListForRandPreview)
@@ -293,13 +299,11 @@ class Fullscreen_Window:
                         
                 if livepreviewavailable:
                     if CAMERA == CAMERA_PI:
-                        mycam.annotate_text = "%s" % (COUNTDOWN_S - i)
+                        mycam.annotate_text = "%s" % (COUNTDOWN_S - i - 1)
                     elif CAMERA == CAMERA_DSLR:
                         pass # TODO
                 else: # background is displayed by other thread
-                    self.Countdown = COUNTDOWN_S - i # just set the used countdown
-                    
-                i = i-1
+                    self.Countdown = COUNTDOWN_S - i - 1 # just set the used countdown
                     
                 # handle the delay per iteration
                 if CAMERA == CAMERA_PI:
@@ -307,8 +311,9 @@ class Fullscreen_Window:
                     sleep(DELAY_BETWEEN_COUNTDOWN)
                 elif CAMERA == CAMERA_DSLR:
                     # dslr cameras need a little to capture image, so skip the last delay
-                    if i != 0:
+                    if i != COUNTDOWN_S:
                         time.sleep(DELAY_BETWEEN_COUNTDOWN)
+                        
             
             ###### POST LIVE PREVIEW
             if livepreviewavailable:
@@ -318,7 +323,9 @@ class Fullscreen_Window:
                     pass # TODO
                 
             self.lockVar = True
+            self.CapturedImage = 0
             myfile = open(imgPath,'wb')
+            self.CapturedImage = imgPath
             
             if CAMERA == CAMERA_PI:
                 mycam.capture(myfile,format='jpeg',quality=100,thumbnail=(64,48,35))
@@ -334,6 +341,7 @@ class Fullscreen_Window:
                     # be sure that there is no corrupted image file, so move the file to temporary trash
                     tempTrashPath = "%sTRASH_%s" % (TEMP_TRASH_FOLDER, file)
                     os.rename(imgPath, tempTrashPath)
+                    self.CapturedImage = 0 # we can not show a captured image on the screen
                 
             myfile.close()
             self.lockVar = False
