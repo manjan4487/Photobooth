@@ -6,7 +6,7 @@ edited by KS
 '''
 
 # Script version
-VERSION = 0.02
+VERSION = 0.03
 
 # do not edit the following lines
 CAMERA_PI = 0
@@ -29,7 +29,7 @@ PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
 TEMP_TRASH_FOLDER = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
 
 # countdown that ticks down when button/event was pressed/occured (in s)
-COUNTDOWN_S = 5 # e.g. 5 means countdown goes in range [4,3,2,1,0]
+COUNTDOWN_S = 3 # e.g. 5 means countdown goes in range [4,3,2,1,0] + the first digit is shown while the camera is initialized
 
 # choose a countdown style. Style name is used in PNG files like "Countdown_%s_x.png" % COUNTDOWN_STYLE, see COUNTDOWN_FORMAT
 # You can create your own style: name the new files with the style name you have chosen here
@@ -42,7 +42,7 @@ COUNTDOWN_IMAGE_FOLDER = '/home/pi/Desktop/Photobooth/images/countdown/'
 TIME_TO_SHOW_CAPTURED_IMAGE = 8
 
 # time between two digits of the countdown (in s)
-DELAY_BETWEEN_COUNTDOWN = 1
+DELAY_BETWEEN_COUNTDOWN = 0.9
 
 # define if the live preview should be used if available (Pi Cam and a few DSLR cameras support live preview)
 TRY_TO_USE_LIVE_PREVIEW = False
@@ -51,7 +51,10 @@ TRY_TO_USE_LIVE_PREVIEW = False
 BACKGROUND_PICTURE = '/home/pi/Desktop/Photobooth/images/background/Background_Coo.jpg'
 
 # activates a grayscale effect on the background image
-BACKGROUND_EFFECT_GRAYSCALE = True
+BACKGROUND_EFFECT_GRAYSCALE = False
+
+# activates a blur effect on the background image
+BACKGROUND_EFFECT_BLUR = True
 
 ##### edit stop
 
@@ -80,6 +83,8 @@ COUNTDOWN_HEIGHT_FACTOR = 1.5
 from tkinter import *
 import PIL.Image
 from PIL import ImageOps
+from PIL import ImageFilter
+from PIL import ImageEnhance
 import glob
 import PIL.ImageTk
 from random import randint
@@ -110,6 +115,7 @@ class Fullscreen_Window:
     LastChangeTimeSlideshow = 0
     LastChangeTimeCountdown = 0
     CapturedImage = 0
+    BackgroundImage = 0
 
     def __init__(self):
         self.tk = Tk()
@@ -122,13 +128,11 @@ class Fullscreen_Window:
         self.tk.bind("<Button-1>", self.take_picture)
         self.panel = Label(self.tk)#
         self.panel.pack(side = "bottom", fill = "both", expand = "yes")
-        self.update_ImageListForRandPreview()
         
         if CAMERA == CAMERA_DSLR:
             # configure gphoto logging
             logging.basicConfig(format='%(levelname)s: %(name)s: %(message)s', level=logging.WARNING)
             gp.check_result(gp.use_python_logging())
-            self.checkForCameraDslr() # start periodical called function# TODO bei DSLRs mit LivePreview diese Vorschau hier einbinden
 
         print("Photobooth v%s started" % VERSION)
         
@@ -137,6 +141,17 @@ class Fullscreen_Window:
             os.makedirs(PHOTO_PATH)
         if not os.path.exists(TEMP_TRASH_FOLDER):
             os.makedirs(TEMP_TRASH_FOLDER)
+            
+        # create background image with effect once in init
+        self.BackgroundImage = ImageOps.fit(PIL.Image.open(BACKGROUND_PICTURE), SCREEN_RESOLUTION)
+                
+        if BACKGROUND_EFFECT_GRAYSCALE: # may use a grayscale effect
+            self.BackgroundImage = ImageOps.grayscale(self.BackgroundImage)
+                
+        if BACKGROUND_EFFECT_BLUR: # may use the blur effect
+            self.BackgroundImage = self.BackgroundImage.filter(ImageFilter.BLUR)
+            
+        self.update_ImageListForRandPreview()
         
         self.tk.mainloop()
         
@@ -182,17 +197,15 @@ class Fullscreen_Window:
         elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background
             now = time.time()
             if now - self.LastChangeTimeCountdown > (DELAY_BETWEEN_COUNTDOWN - COUNTDOWN_REFRESH_DELTA):
-                #Resize Image, so all Images have the same size
-                self.resizedImg = ImageOps.fit(PIL.Image.open(BACKGROUND_PICTURE), SCREEN_RESOLUTION)
+
+                # get the background image with already placed effects
+                self.resizedImg  = self.BackgroundImage.copy()
                 
-                if BACKGROUND_EFFECT_GRAYSCALE: # may use a grayscale effect
-                    self.resizedImg = ImageOps.grayscale(self.resizedImg)
-                
-                # nun den Countdown einblenden
+                # paste the countdown image on top of the background image
                 numberPic = PIL.Image.open(COUNTDOWN_FORMAT % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE,self.Countdown))
                 numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
                 self.resizedImg.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2),int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_HEIGHT_FACTOR/2)), numberPic)
-                    
+                
                 #Load the resized Image with PhotoImage
                 self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
                 #Put the image into the Panel object
@@ -201,7 +214,7 @@ class Fullscreen_Window:
                 self.panel.pack(side = "bottom", fill = "both", expand = "yes")
                 
                 self.LastChangeTimeCountdown = time.time() # store time for next iteration
-                
+            
         elif self.StateSlideshow == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
             if self.CapturedImage != 0: # if a picture was captured
                 #Resize Image, so all Images have the same size
@@ -249,15 +262,25 @@ class Fullscreen_Window:
 
         while 1:
             
+            # initialze variables for this iteration
+            self.takePictureVar = False
+            self.Countdown = COUNTDOWN_S
+            
+            ###### CHECK IF WE NEED TO SHOW LIVE PREVIEW OR BACKGROUND
+            livepreviewavailable = False
+            if TRY_TO_USE_LIVE_PREVIEW:
+                if livepreview:
+                    livepreviewavailable = True
+            
             #button_takePhoto.wait_for_press()
             while self.takePictureVar is not True:
                 time.sleep(0.1)
-
-            # setze globale Variable zurueck 
-            self.takePictureVar = False
+                    
+            # change the shown picture to the background
+            self.StateSlideshow = STATE_SLIDESHOW_BACKGROUND
             
+            # set the new filename
             now = time.strftime("%Y%m%d_%H-%M-%S")
-            
             file = "%s.jpg" % now
             imgPath = "%s%s" % (PHOTO_PATH,file)
             
@@ -272,15 +295,6 @@ class Fullscreen_Window:
                 except:
                     print('Could not find any DSLR camera')
                     # TODO auch dem Nutzer anzeigen! Overlay?!
-            
-            ###### CHECK IF WE NEED TO SHOW LIVE PREVIEW OR BACKGROUND
-            livepreviewavailable = False
-            if TRY_TO_USE_LIVE_PREVIEW:
-                if livepreview:
-                    livepreviewavailable = True
-                    
-            # change the shown picture to the background
-            self.StateSlideshow = STATE_SLIDESHOW_BACKGROUND
             
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
             # TODO über andren thread lösen
