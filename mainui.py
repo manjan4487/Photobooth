@@ -50,28 +50,28 @@ DELAY_BETWEEN_COUNTDOWN = 0.9
 TRY_TO_USE_LIVE_PREVIEW = False
 
 # background image to show if there is no live preview shown
-BACKGROUND_PICTURE = './images/background/Background_Coo.jpg'
+BACKGROUND_PICTURE = './images/background/Background_Wine_un_trans40.jpg'
 
 # activates a grayscale effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
-BACKGROUND_EFFECT_GRAYSCALE = True
+BACKGROUND_EFFECT_GRAYSCALE = False
 
 # activates a blur effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
-BACKGROUND_EFFECT_BLUR = True
+BACKGROUND_EFFECT_BLUR = False
 
 # with these factors you can determine the size of the overlayed countdown pictures
 # factor = 1.0 means that the size is equivalent to the screen resolution (still depends
 # on the original picture size)
 # factors < 1.0 are possible as well
-COUNTDOWN_WIDTH_FACTOR = 0.9
-COUNTDOWN_HEIGHT_FACTOR = 0.9
+COUNTDOWN_WIDTH_FACTOR = 2.8
+COUNTDOWN_HEIGHT_FACTOR = 1.5
 
 # offset of the overlay of the countdown digits in x and y coordinates
 # Info: position of the overlay picture is calculated by the desired resolution
 #       but this is an additional offset to optimize the visible part of the picture
 #       and not only the pictures resolution (can differ from the real visible part)
-COUNTDOWN_OVERLAY_OFFSET_X = 50
+COUNTDOWN_OVERLAY_OFFSET_X = 0
 COUNTDOWN_OVERLAY_OFFSET_Y = 0
 
 ##### edit stop
