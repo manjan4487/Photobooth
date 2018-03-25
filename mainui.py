@@ -74,6 +74,16 @@ COUNTDOWN_HEIGHT_FACTOR = 1.5
 COUNTDOWN_OVERLAY_OFFSET_X = 0
 COUNTDOWN_OVERLAY_OFFSET_Y = 0
 
+# information text that is shown during runtime
+INFORMATION_TEXT = "TODO Picture access via http://192.168.178.68"
+INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 340
+INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 25
+INFORMATION_TEXT_FONT = ('Arial','18')
+
+FAILURE_TEXT_X = SCREEN_RESOLUTION[0]/2 - 370
+FAILURE_TEXT_Y = SCREEN_RESOLUTION[1]/2 + 100
+FAILURE_TEXT_FONT = ('Arial','22')
+
 ##### edit stop
 
 ##### DEVELOPER EDIT START #####
@@ -132,18 +142,19 @@ class Fullscreen_Window:
     LastChangeTimeCountdown = 0
     CapturedImage = 0
     BackgroundImage = 0
+    TextFailure = ""
 
     def __init__(self):
         self.tk = Tk()
         self.frame = Frame(self.tk)
-        self.frame.pack()
+        self.frame.pack(fill=BOTH, expand=YES)
         self.state = True
         self.tk.attributes("-fullscreen", self.state)
         self.tk.bind("<F11>", self.toggle_fullscreen)
         self.tk.bind("<Escape>", self.end_fullscreen)
         self.tk.bind("<Button-1>", self.take_picture)
-        self.panel = Label(self.tk)#
-        self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+        self.canvas = Canvas(self.tk, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1])
+        self.canvas.pack(fill=BOTH, expand=YES)
         
         if CAMERA == CAMERA_DSLR:
             # configure gphoto logging
@@ -199,14 +210,16 @@ class Fullscreen_Window:
                     # Calc. random number for Image which has to be shown
                     self.randomnumber = randint(0, len(self.image_list)-1)
                     
-                    #Resize Image, so all Images have the same size
+                    # Resize Image, so all Images have the same size
                     self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), SCREEN_RESOLUTION)
-                    #Load the resized Image with PhotoImage
+                    # Load the resized Image with PhotoImage
                     self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                    #Put the image into the Panel object
-                    self.panel.configure(image = self.resizedImg)
-                    #Maximize the Panel View
-                    self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+                    # Put the image into the canvas object
+                    self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
+                    
+                    # refresh overlayed text
+                    self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT)
+                    self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT)
                     
                 self.LastChangeTimeSlideshow = time.time() # store time for next iteration
                 
@@ -224,10 +237,12 @@ class Fullscreen_Window:
                 
                 #Load the resized Image with PhotoImage
                 self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                #Put the image into the Panel object
-                self.panel.configure(image = self.resizedImg)
-                #Maximize the Panel View
-                self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+                #Put the image into the canvas object
+                self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
+                
+                # refresh overlayed text
+                self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT)
+                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT)
                 
                 self.LastChangeTimeCountdown = time.time() # store time for next iteration
             
@@ -237,10 +252,12 @@ class Fullscreen_Window:
                 self.resizedImg = ImageOps.fit(PIL.Image.open(self.CapturedImage), SCREEN_RESOLUTION)
                 #Load the resized Image with PhotoImage
                 self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                #Put the image into the Panel object
-                self.panel.configure(image = self.resizedImg)
-                #Maximize the Panel View
-                self.panel.pack(side = "bottom", fill = "both", expand = "yes")
+                #Put the image into the canvas object
+                self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
+                
+                # refresh overlayed text
+                # but only when a failure occurred, no info text here
+                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT)
 
         #Update Timer
         self.tk.after(PERIOD_PICTURE_REFRESH, self.update_ImageListForRandPreview)
