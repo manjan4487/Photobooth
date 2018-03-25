@@ -23,9 +23,11 @@ SLIDESHOW_CHANGE_TIME_S = 4
 SCREEN_RESOLUTION = (1280,960) #(1920,1080) # (height,width)
 
 # folder path, where new pictures will be saved
+# info: if folder does not exist, the folder will be created
 PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
 
 # folder path, where corrupted pictures will be moved to such that never a picture could be erased in failure case
+# info: if folder does not exist, the folder will be created
 TEMP_TRASH_FOLDER = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
 
 # countdown that ticks down when button/event was pressed/occured (in s)
@@ -36,7 +38,7 @@ COUNTDOWN_S = 3 # e.g. 5 means countdown goes in range [4,3,2,1,0] + the first d
 COUNTDOWN_STYLE = 'classic'
 
 # the folder with the countdown images
-COUNTDOWN_IMAGE_FOLDER = '/home/pi/Desktop/Photobooth/images/countdown/'
+COUNTDOWN_IMAGE_FOLDER = './images/countdown/'
 
 # the time that a captured image is displayed until the slideshow continues
 TIME_TO_SHOW_CAPTURED_IMAGE = 8
@@ -48,13 +50,29 @@ DELAY_BETWEEN_COUNTDOWN = 0.9
 TRY_TO_USE_LIVE_PREVIEW = False
 
 # background image to show if there is no live preview shown
-BACKGROUND_PICTURE = '/home/pi/Desktop/Photobooth/images/background/Background_Coo.jpg'
+BACKGROUND_PICTURE = './images/background/Background_Coo.jpg'
 
 # activates a grayscale effect on the background image
-BACKGROUND_EFFECT_GRAYSCALE = False
+# info: you should edit the background picture on a pc with all effects you want to
+BACKGROUND_EFFECT_GRAYSCALE = True
 
 # activates a blur effect on the background image
+# info: you should edit the background picture on a pc with all effects you want to
 BACKGROUND_EFFECT_BLUR = True
+
+# with these factors you can determine the size of the overlayed countdown pictures
+# factor = 1.0 means that the size is equivalent to the screen resolution (still depends
+# on the original picture size)
+# factors < 1.0 are possible as well
+COUNTDOWN_WIDTH_FACTOR = 0.9
+COUNTDOWN_HEIGHT_FACTOR = 0.9
+
+# offset of the overlay of the countdown digits in x and y coordinates
+# Info: position of the overlay picture is calculated by the desired resolution
+#       but this is an additional offset to optimize the visible part of the picture
+#       and not only the pictures resolution (can differ from the real visible part)
+COUNTDOWN_OVERLAY_OFFSET_X = 50
+COUNTDOWN_OVERLAY_OFFSET_Y = 0
 
 ##### edit stop
 
@@ -77,8 +95,6 @@ STATE_SLIDESHOW_IDLE         = 0
 STATE_SLIDESHOW_BACKGROUND   = 1
 STATE_SLIDESHOW_CAPTURED_IMG = 2
 
-COUNTDOWN_WIDTH_FACTOR = 1.5
-COUNTDOWN_HEIGHT_FACTOR = 1.5
 
 from tkinter import *
 import PIL.Image
@@ -204,7 +220,7 @@ class Fullscreen_Window:
                 # paste the countdown image on top of the background image
                 numberPic = PIL.Image.open(COUNTDOWN_FORMAT % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE,self.Countdown))
                 numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
-                self.resizedImg.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2),int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_HEIGHT_FACTOR/2)), numberPic)
+                self.resizedImg.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_X,int(SCREEN_RESOLUTION[1]/2-SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_Y), numberPic)
                 
                 #Load the resized Image with PhotoImage
                 self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
