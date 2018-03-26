@@ -146,14 +146,12 @@ class Fullscreen_Window:
 
     def __init__(self):
         self.tk = Tk()
-        self.frame = Frame(self.tk)
-        self.frame.pack(fill=BOTH, expand=YES)
         self.state = True
         self.tk.attributes("-fullscreen", self.state)
         self.tk.bind("<F11>", self.toggle_fullscreen)
         self.tk.bind("<Escape>", self.end_fullscreen)
         self.tk.bind("<Button-1>", self.take_picture)
-        self.canvas = Canvas(self.tk, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1])
+        self.canvas = Canvas(self.tk, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1],highlightthickness=0,bd=0,bg="black")
         self.canvas.pack(fill=BOTH, expand=YES)
         
         if CAMERA == CAMERA_DSLR:
@@ -240,8 +238,7 @@ class Fullscreen_Window:
                 #Put the image into the canvas object
                 self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
                 
-                # refresh overlayed text
-                self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT)
+                # refresh overlayed text (just the failure message if available)
                 self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT)
                 
                 self.LastChangeTimeCountdown = time.time() # store time for next iteration
