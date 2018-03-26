@@ -75,14 +75,17 @@ COUNTDOWN_OVERLAY_OFFSET_X = 0
 COUNTDOWN_OVERLAY_OFFSET_Y = 0
 
 # information text that is shown during runtime
-INFORMATION_TEXT = "TODO Picture access via http://192.168.178.68"
-INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 340
-INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 25
-INFORMATION_TEXT_FONT = ('Arial','18')
+INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://192.168.178.68"
+INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 200
+INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 28
+INFORMATION_TEXT_FONT = ('Arial','16')
+INFORMATION_TEXT_WIDTH = "300p"
 
-FAILURE_TEXT_X = SCREEN_RESOLUTION[0]/2 - 370
-FAILURE_TEXT_Y = SCREEN_RESOLUTION[1]/2 + 100
+FAILURE_TEXT_WIDTH = "360p"
+FAILURE_TEXT_X = SCREEN_RESOLUTION[0] - 250
+FAILURE_TEXT_Y = SCREEN_RESOLUTION[1] - 130
 FAILURE_TEXT_FONT = ('Arial','22')
+FAILURE_TEXT_COLOR = "red"
 
 ##### edit stop
 
@@ -216,8 +219,8 @@ class Fullscreen_Window:
                     self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
                     
                     # refresh overlayed text
-                    self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT)
-                    self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT)
+                    self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT,width=INFORMATION_TEXT_WIDTH)
+                    self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
                     
                 self.LastChangeTimeSlideshow = time.time() # store time for next iteration
                 
@@ -239,7 +242,7 @@ class Fullscreen_Window:
                 self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
                 
                 # refresh overlayed text (just the failure message if available)
-                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT)
+                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
                 
                 self.LastChangeTimeCountdown = time.time() # store time for next iteration
             
@@ -254,7 +257,18 @@ class Fullscreen_Window:
                 
                 # refresh overlayed text
                 # but only when a failure occurred, no info text here
-                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT)
+                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+            else: # failure case. Could not capture an image
+                # get the background image with already placed effects
+                self.resizedImg  = self.BackgroundImage.copy()
+                
+                #Load the resized Image with PhotoImage
+                self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
+                #Put the image into the canvas object
+                self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
+                
+                # refresh overlayed text (just the failure message if available)
+                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
 
         #Update Timer
         self.tk.after(PERIOD_PICTURE_REFRESH, self.update_ImageListForRandPreview)
@@ -295,6 +309,7 @@ class Fullscreen_Window:
             # initialze variables for this iteration
             self.takePictureVar = False
             self.Countdown = COUNTDOWN_S
+            self.TextFailure = ""
             
             ###### CHECK IF WE NEED TO SHOW LIVE PREVIEW OR BACKGROUND
             livepreviewavailable = False
@@ -321,22 +336,18 @@ class Fullscreen_Window:
                     gp.check_result(gp.gp_camera_init(self.camera))
                     #text = gp.check_result(gp.gp_camera_get_summary(self.camera))
                     if False: # TODO: prüfen, ob livepreview available ist
-                        self.livepreview = True # TODO start livepreview
+                        self.livepreview = True
                 except:
-                    print('Could not find any DSLR camera')
-                    # TODO auch dem Nutzer anzeigen! Overlay?!
+                    print('%s: Could not find any DSLR camera' % time.ctime())
+                    self.TextFailure = "Could not find any DSLR camera.\nCheck camera's battery"
             
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
-            # TODO über andren thread lösen
             if livepreviewavailable:
                 if CAMERA == CAMERA_PI:
                     mycam.annotate_text_size=96
                     mycam.start_preview(resolution=(SCREEN_RESOLUTION))
                 elif CAMERA == CAMERA_DSLR:
                     pass # TODO start live preview
-            else:
-                # picture = PIL.Image.open(BACKGROUND_PICTURE)
-                pass # TODO über andren thread lösen
 
             ###### COUNTDOWN LOOP
             for i in range(COUNTDOWN_S):
@@ -371,6 +382,7 @@ class Fullscreen_Window:
             myfile = open(imgPath,'wb')
             self.CapturedImage = imgPath
             
+            ###### CAPTURE IMAGE
             if CAMERA == CAMERA_PI:
                 mycam.capture(myfile,format='jpeg',quality=100,thumbnail=(64,48,35))
             elif CAMERA == CAMERA_DSLR:
@@ -379,8 +391,8 @@ class Fullscreen_Window:
                     cameraFile = gp.check_result(gp.gp_camera_file_get(self.camera, cameraFilePath.folder, cameraFilePath.name, gp.GP_FILE_TYPE_NORMAL))
                     gp.check_result(gp.gp_file_save(cameraFile, imgPath))
                 except gp.GPhoto2Error:
-                    print("Could not capture image!")
-                    # TODO show a notice on the screen (overlay)
+                    print("%s: Could not capture image!" % time.ctime())
+                    self.TextFailure = "Could not capture an image.\nCheck camera's battery"
                     
                     # be sure that there is no corrupted image file, so move the file to temporary trash
                     tempTrashPath = "%sTRASH_%s" % (TEMP_TRASH_FOLDER, file)
@@ -407,9 +419,9 @@ if __name__ == '__main__':
 
     try:
         
-        #Starting Camera Thread
+        # Starting Camera Thread
         _thread.start_new_thread(Fullscreen_Window.camTask,(Fullscreen_Window,))
-        #Starting Gallery View
+        # Starting Gallery View
         _thread.start_new_thread(Fullscreen_Window(),(Fullscreen_Window,))
    
 
