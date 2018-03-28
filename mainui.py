@@ -74,6 +74,12 @@ COUNTDOWN_HEIGHT_FACTOR = 1.5
 COUNTDOWN_OVERLAY_OFFSET_X = 0
 COUNTDOWN_OVERLAY_OFFSET_Y = 0
 
+# define if you want to use a button/switch to shutdown the raspberry pi properly
+SHUTDOWN_GPIO_USE = True
+SHUTDOWN_GPIO_PIN = 22 # in BCM Style (GPIO x)
+SHUTDOWN_GPIO_POLARITY = True # False for GPIO.FALLING, True for GPIO.RISING
+SHUTDOWN_GPIO_PULL = True # if True: pull_up if polarity is failling, pull_down if polarity is raising, else no pull
+
 # information text that is shown during runtime
 INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://192.168.178.68"
 INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 200
@@ -126,6 +132,9 @@ if CAMERA == CAMERA_PI:
     from picamera import PiCamera
 elif CAMERA == CAMERA_DSLR:
     import gphoto2 as gp
+if SHUTDOWN_GPIO_USE: # TODO or when a gpio is used to capture an image
+    import RPi.GPIO as GPIO
+    from subprocess import call
 import time
 
 if sys.version_info[0] == 2:  # Just checking your Python version to import Tkinter properly.
@@ -181,7 +190,27 @@ class Fullscreen_Window:
             
         self.update_ImageListForRandPreview()
         
+        if SHUTDOWN_GPIO_USE:
+            if SHUTDOWN_GPIO_POLARITY:
+                polarity = GPIO.RISING
+            else:
+                polarity = GPIO.FALLING
+            if SHUTDOWN_GPIO_PULL:
+                if SHUTDOWN_GPIO_POLARITY:
+                    pull = GPIO.PUD_DOWN
+                else:
+                    pull = GPIO.PUD_UP
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN, pull_up_down=pull)
+            GPIO.add_event_detect(SHUTDOWN_GPIO_PIN, polarity, callback=self.shutdownButtonEvent, bouncetime=200)
+        
         self.tk.mainloop()
+        
+    def shutdownButtonEvent(self, channel):
+        if SHUTDOWN_GPIO_USE:
+            if channel == SHUTDOWN_GPIO_PIN:
+                print("%s: Shutting down request via GPIO PIN. Shutting down now..." % time.ctime())
+                call("sudo shutdown -h now", shell=True)
         
     def take_picture(self, event=None): # gets called by button-1 (left mouse button)
         Fullscreen_Window.takePictureVar = True
