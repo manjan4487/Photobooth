@@ -392,7 +392,7 @@ class Fullscreen_Window:
                 # handle the delay per iteration
                 if CAMERA == CAMERA_PI:
                     # Pi camera captures image immediately, so we can wait the complete countdown
-                    sleep(DELAY_BETWEEN_COUNTDOWN)
+                    time.sleep(DELAY_BETWEEN_COUNTDOWN)
                 elif CAMERA == CAMERA_DSLR:
                     # dslr cameras need a little to capture image, so skip the last delay
                     if i != COUNTDOWN_S:
