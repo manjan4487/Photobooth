@@ -27,7 +27,7 @@ Short instructions:
 Connect your DSLR via USB to the raspberry pi. Check if your camera is supported by gphoto2, see http://gphoto.org/proj/libgphoto2/support.php
 
 ## Configuration
-Check the configuration part of the main file to configure the photobooth software for your needs.
+Check the configuration part of the main file to configure the photobooth software for your needs. Note, that you need to set the camera type!
 
 Also, check the comfort configuration part in this readme file.
 
