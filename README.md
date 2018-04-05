@@ -9,7 +9,7 @@ Go to your path where you want to clone the git repository, e.g. `cd Desktop`
 `git clone https://github.com/manjan4487/Photobooth.git --branch dslrTest Photobooth`
 
 ### Pi camera
-Just connect your Pi camera to the correct connector on the raspberry pi.
+Connect your Pi camera to the correct connector on the raspberry pi. Open `sudo raspi-config` and activate the Pi camera in "5 Interfacing Options" -> "P1 Camera"
 
 ### DSLR
 To use the DSLR configuration you need the gphoto2 lib for python, see https://github.com/jim-easterbrook/python-gphoto2 for installation details (you also need to install the dependencies!).
