@@ -17,6 +17,7 @@ To use the DSLR configuration you need the gphoto2 lib for python, see https://g
 Short instructions:
 
 `sudo apt-get install python3 libgphoto2-dev pkg-config`
+
 `sudo pip3 install -v gphoto2`
 
 Connect your DSLR via USB to the raspberry pi. Check if your camera is supported by gphoto2, see http://gphoto.org/proj/libgphoto2/support.php
