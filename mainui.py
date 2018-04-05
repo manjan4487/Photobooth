@@ -22,6 +22,8 @@ SLIDESHOW_CHANGE_TIME_S = 4
 
 SCREEN_RESOLUTION = (1280,960) #(1920,1080) # (height,width)
 
+PHOTOBOOTH_PATH = '/home/pi/Desktop/Photobooth/'
+
 # folder path, where new pictures will be saved
 # info: if folder does not exist, the folder will be created
 PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
@@ -38,7 +40,7 @@ COUNTDOWN_S = 3 # e.g. 5 means countdown goes in range [4,3,2,1,0] + the first d
 COUNTDOWN_STYLE = 'classic'
 
 # the folder with the countdown images
-COUNTDOWN_IMAGE_FOLDER = './images/countdown/'
+COUNTDOWN_IMAGE_FOLDER = PHOTOBOOTH_PATH + 'images/countdown/'
 
 # the time that a captured image is displayed until the slideshow continues
 TIME_TO_SHOW_CAPTURED_IMAGE = 8
@@ -50,7 +52,7 @@ DELAY_BETWEEN_COUNTDOWN = 0.9
 TRY_TO_USE_LIVE_PREVIEW = False
 
 # background image to show if there is no live preview shown
-BACKGROUND_PICTURE = './images/background/Background_Wine_un_trans40.jpg'
+BACKGROUND_PICTURE = PHOTOBOOTH_PATH + 'images/background/Background_Wine_un_trans40.jpg'
 
 # activates a grayscale effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
