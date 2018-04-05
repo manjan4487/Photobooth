@@ -3,15 +3,21 @@ Photobooth with a Raspberry Pi. Two configurations are available: 1) Use of the 
 
 ## Installation
 The photobooth software was tested with Raspbian Jessie.
-git clone https://github.com/manjan4487/Photobooth/tree/dslrTest.git
+
+Go to your path where you want to clone the git repository, e.g. `cd Desktop`
+
+`git clone https://github.com/manjan4487/Photobooth.git --branch dslrTest Photobooth`
 
 ### Pi camera
 Just connect your Pi camera to the correct connector on the raspberry pi.
 
 ### DSLR
-To use the DSLR configuration you need the gphoto2 lib for python, see https://github.com/jim-easterbrook/python-gphoto2 for installation details (you also need to install the dependencies!). Short instructions:
-sudo apt-get install python3 libgphoto2-dev pkg-config
-sudo pip3 install -v gphoto2
+To use the DSLR configuration you need the gphoto2 lib for python, see https://github.com/jim-easterbrook/python-gphoto2 for installation details (you also need to install the dependencies!).
+
+Short instructions:
+
+`sudo apt-get install python3 libgphoto2-dev pkg-config`
+`sudo pip3 install -v gphoto2`
 
 Connect your DSLR via USB to the raspberry pi. Check if your camera is supported by gphoto2, see http://gphoto.org/proj/libgphoto2/support.php
 
