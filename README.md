@@ -4,6 +4,10 @@ Photobooth with a Raspberry Pi. Two configurations are available: 1) Use of the 
 ## Installation
 The photobooth software was tested with Raspbian Jessie.
 
+Update necessary dependencies for image handling:
+
+`sudo apt-get install python3 python3-pil.imagetk`
+
 Go to your path where you want to clone the git repository, e.g. `cd Desktop`
 
 `git clone https://github.com/manjan4487/Photobooth.git --branch dslrTest Photobooth`
@@ -16,7 +20,7 @@ To use the DSLR configuration you need the gphoto2 lib for python, see https://g
 
 Short instructions:
 
-`sudo apt-get install python3 libgphoto2-dev pkg-config`
+`sudo apt-get install libgphoto2-dev pkg-config`
 
 `sudo pip3 install -v gphoto2`
 
