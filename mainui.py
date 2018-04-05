@@ -173,6 +173,14 @@ class Fullscreen_Window:
 
         print("Photobooth v%s started" % VERSION)
         
+        print("Camera type: ")
+        if CAMERA == CAMERA_DSLR:
+            print("DSLR")
+        elif CAMERA == CAMERA_PI:
+            print("Pi")
+        else:
+            print("Unknown! Set a correct camera type!")
+        
         # check if the folders already exist
         if not os.path.exists(PHOTO_PATH):
             os.makedirs(PHOTO_PATH)
