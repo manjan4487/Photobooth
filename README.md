@@ -4,7 +4,7 @@ Photobooth with a Raspberry Pi. Two configurations are available: 1) Use of the 
 ## Installation
 The photobooth software was tested with Raspbian Jessie.
 
-Update necessary dependencies for image handling:
+Install necessary dependencies for image handling:
 
 `sudo apt-get install python3 python3-pil.imagetk`
 
@@ -27,10 +27,30 @@ Short instructions:
 Connect your DSLR via USB to the raspberry pi. Check if your camera is supported by gphoto2, see http://gphoto.org/proj/libgphoto2/support.php
 
 ## Configuration
-Check the configuration part of the main file.
+Check the configuration part of the main file to configure the photobooth software for your needs.
+
+Also, check the comfort configuration part in this readme file.
 
 ### Pi camera
 There are no special configurations neccesary for the Pi camera.
 
 ### DSLR
 When you use a DSLR camera, you can modify it´s configuration to determine, if the picture is stored on the camera´s memory card or in the internal RAM. Notice, that it´s quicker to store the picture in the internal RAM and download it to the raspberry than via the memory card, there will be an additional delay when capturing pictures. You can modify the camera´s configuration via the corresponding python-gphoto2 example "camera-config-gui.py", see python-gphoto2 library.
+
+## Comfort Configuration
+This part describes a couple of comfort configurations of your raspberry pi to improve the photobooth functionality.
+
+### Autostart the Photobooth Application
+TODO
+
+### Hide mouse cursor
+TODO
+
+### Raspberry Pi as Access Point
+TODO
+
+### Show captured images on webserver
+TODO
+
+### Domain name for Web Access
+TODO
