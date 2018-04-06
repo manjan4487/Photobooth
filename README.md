@@ -72,15 +72,9 @@ Download the latest PiGallery Release, decompress it and move it to the `/var/ww
 
 If your setup is fine, you can browse on your pi to `localhost` and should see the configuration page of the PiGallery. Follow the configuration wizard. Some tips for the configuration wizard: you may need to create a link to the image folder of the photobooth application, like `sudo ln -s /home/pi/Desktop/photoboothImages /var/www/html/images`. Note, that you need to create a directory for the thumbnail generation and edit the write permissions of this directory. For me the "Document Root" box is complete empty because the gallery files are directly in the html folder.
 
-If you want to use the database mode, you need to create the initial database, like:
-
-```
-mysql -u root -p
-CREATE DATABASE pigallery;
-exit
-```
-
 Note, that you need to change the permission, such that the webserver can modify all required files and folders. In worst case, that is absolutely not recommended, you could use `sudo chmod 777 /var/www/html -R` (**not** recommended!). When you have problems in the setup wizard, try to modify the config.php file directly and disable the wizard, this worked for me.
+
+If you get mysql errors, the file permission may be still be wrong! The setup wizard did all mysql initializations when the file permissions were correct (for the web user).
 
 ### Domain name for Web Access
 TODO
