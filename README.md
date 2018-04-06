@@ -80,7 +80,7 @@ If you want to use the database mode, you need to create the initial database, l
 
 `exit`
 
-Note, that you need to change the permission, such that the webserver can modify all required files and folders. In worst case, that is absolutely not recommended, you could use `sudo chmod 777 /var/www/html -R` (NOT recommended!). When you have problems in the setup wizard, try to modify the config.php file directly and disable the wizard, this worked for me.
+Note, that you need to change the permission, such that the webserver can modify all required files and folders. In worst case, that is absolutely not recommended, you could use `sudo chmod 777 /var/www/html -R` (**not** recommended!). When you have problems in the setup wizard, try to modify the config.php file directly and disable the wizard, this worked for me.
 
 ### Domain name for Web Access
 TODO
