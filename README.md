@@ -62,6 +62,16 @@ TODO
 TODO
 
 ### Show captured images on webserver
+Install your preferred web gallery or something similar. You can use the [PiGallery](https://github.com/bpatrik/PiGallery), where you find the necessary installation details.
+
+Short instructions:
+
+`sudo apt-get install php5 apache2 php5-gd mysql-server mysql-client php5-mysql`
+
+Download the latest PiGallery Release, decompress it and move it to the `/var/www/` folder. Note, that you need to be root, so just use `sudo` on the command line to move the folder, e.g. `sudo mv /home/pi/Desktop/Gallery/* /var/www/html`. Maybe you need to remove the default index.html in the html folder.
+
+If your setup is fine, you can browse on your pi to `localhost` and should see the configuration page of the PiGallery. Follow the configuration wizard. Some tips for the configuration wizard: you may need to create a link to the image folder of the photobooth application, like `sudo ln -s /home/pi/Desktop/photoboothImages /var/www/html/images`. Note, that you need to create a directory for the thumbnail generation and edit the write permissions of this directory. For me the "Document Root" box is complete empty because the gallery files are directly in the html folder.
+
 TODO
 
 ### Domain name for Web Access
