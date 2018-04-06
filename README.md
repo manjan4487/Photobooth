@@ -55,9 +55,6 @@ If you have problems, a few tips: add permission to the start script `chmod +x s
 
 Depending on your Raspbian version you need to edit another autostart script, use google or the linked instruction site.
 
-### Hide mouse cursor
-TODO
-
 ### Raspberry Pi as Access Point
 TODO
 
@@ -78,3 +75,8 @@ If you get mysql errors, the file permission may be still be wrong! The setup wi
 
 ### Domain name for Web Access
 TODO
+
+### Hide mouse cursor
+If you want to hide the mouse cursor the whole time, you can simply edit the file /etc/lightdm/lightdm.conf and uncomment the line `x-server-command` line **under** `SeatDefaults`. Edit the line to `xserver-command = X -nocursor`
+
+If you just want to hide the cursor when you do not move the mouse, try [uncutter](https://jackbarber.co.uk/blog/2017-02-16-hide-raspberry-pi-mouse-cursor-in-raspbian-kiosk). But check out if it´s ok, when you use the mouse button to capture a new image.
