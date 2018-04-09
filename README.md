@@ -56,7 +56,65 @@ If you have problems, a few tips: add permission to the start script `chmod +x s
 Depending on your Raspbian version you need to edit another autostart script, use google or the linked instruction site.
 
 ### Raspberry Pi as Access Point
-TODO
+I followed the instruction for this [Access Point Guide (german)](https://forum-raspberrypi.de/forum/thread/6902-raspberry-pi-accesspoint-mit-lokalem-webserver-betreiben/).
+
+Short instructions:
+
+Install the required packets: `sudo apt-get install hostapd udhcpd`
+
+Now, edit the DHCP configuration in `sudo nano /etc/udhcpd.conf` like:
+
+```
+# Address area
+start 192.168.0.2
+end 192.168.0.254
+# Interface
+interface wlan0
+remaining yes
+# DNS and subnet
+opt dns 8.8.8.8 4.2.2.2
+opt subnet 255.255.255.0
+# Adresse Router
+opt router 192.168.0.1
+# Leasetime in seconds (7 days)
+opt lease 604800
+```
+
+Edit the folloing line in file `sudo nano /etc/default/udhcpd` to `#DHCPD_ENABLED="no"`
+
+Change the static ip configuration of the pi via `sudo nano /etc/network/interfaces` to
+
+```
+auto lo
+iface lo inet loopback
+iface eth0 inet dhcp
+iface wlan0 inet static
+  address 192.168.0.1
+  netmask 255.255.255.0
+``` 
+
+Now we need to configure the access point `sudo nano /etc/hostapd/hostapd.conf`:
+
+```
+interface=wlan0
+driver=nl80211
+ssid=RPI_AP
+hw_mode=g
+channel=6
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=secretphrase
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+```
+
+Change the config file for the access point `sudo nano /etc/default/hostapd` to
+
+`DAEMON_CONF="/etc/hostapd/hostapd.conf"`
+
+After a reboot, you should be able to access the webserver via 192.168.0.1 from your pi and from other wifi devices.
 
 ### Show captured images on webserver
 Install your preferred web gallery or something similar. You can use the [PiGallery](https://github.com/bpatrik/PiGallery), where you find the necessary installation details.
