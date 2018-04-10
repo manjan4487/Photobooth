@@ -6,7 +6,7 @@ edited by KS
 '''
 
 # Script version
-VERSION = 0.03
+VERSION = 0.04
 
 # do not edit the following lines
 CAMERA_PI = 0
@@ -20,17 +20,27 @@ CAMERA = CAMERA_DSLR
 # Defines the timing of changing the ImageView in the slideshow in seconds
 SLIDESHOW_CHANGE_TIME_S = 4
 
-SCREEN_RESOLUTION = (1280,960) #(1920,1080) # (height,width)
+SCREEN_RESOLUTION = (1680,1050)#(1280,960) #(1920,1080) # (height,width)
 
 PHOTOBOOTH_PATH = '/home/pi/Desktop/Photobooth/'
 
 # folder path, where new pictures will be saved
 # info: if folder does not exist, the folder will be created
-PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
+PHOTO_PATH = '/home/pi/Desktop/PhotoboothPictures/'
+
+# if activated, the captured image is stored on the camera while displaying the image on the screen (so no delay will occur)
+# Note, that this did not work with my Nikon D60!
+DSLR_STORE_PICTURE_ON_CAMERA = False
+CAMERA_FOLDER = '/Event0/'
+
+# stores the captured picture also on the first usb device that is found
+STORE_PICTURE_ALSO_ON_USB_DEVICE = True
+USB_DEVICE_MOUNT_POINT = '/media/pi/'
+BKP_DEVICE_FOLDER_ON_USB_DEVICE = '/Event0/'
 
 # folder path, where corrupted pictures will be moved to such that never a picture could be erased in failure case
 # info: if folder does not exist, the folder will be created
-TEMP_TRASH_FOLDER = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
+TEMP_TRASH_FOLDER = '/home/pi/Desktop/_temporaryTrash/'
 
 # countdown that ticks down when button/event was pressed/occured (in s)
 COUNTDOWN_S = 3 # e.g. 5 means countdown goes in range [4,3,2,1,0] + the first digit is shown while the camera is initialized
@@ -80,10 +90,10 @@ COUNTDOWN_OVERLAY_OFFSET_Y = 0
 SHUTDOWN_GPIO_USE = True
 SHUTDOWN_GPIO_PIN = 22 # in BCM Style (GPIO x)
 SHUTDOWN_GPIO_POLARITY = True # False for GPIO.FALLING, True for GPIO.RISING
-SHUTDOWN_GPIO_PULL = True # if True: pull_up if polarity is failling, pull_down if polarity is raising, else no pull
+SHUTDOWN_GPIO_PULL = True # if True: pull_up if polarity is falling, pull_down if polarity is raising, else no pull
 
 # information text that is shown during runtime
-INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://192.168.178.68"
+INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://photobooth"
 INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 200
 INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 28
 INFORMATION_TEXT_FONT = ('Arial','16')
@@ -94,6 +104,12 @@ FAILURE_TEXT_X = SCREEN_RESOLUTION[0] - 250
 FAILURE_TEXT_Y = SCREEN_RESOLUTION[1] - 130
 FAILURE_TEXT_FONT = ('Arial','22')
 FAILURE_TEXT_COLOR = "red"
+
+# configuration for logging
+LOGGING_ACTIVE = True
+LOGGING_FILE_PREFIX = "photobooth_log_" # the ctime at script start is added to the log file *.log
+LOGGING_FILE_FOLDER = "/home/pi/Desktop/"
+
 
 ##### edit stop
 
@@ -138,6 +154,10 @@ if SHUTDOWN_GPIO_USE: # TODO or when a gpio is used to capture an image
     import RPi.GPIO as GPIO
     from subprocess import call
 import time
+if STORE_PICTURE_ALSO_ON_USB_DEVICE:
+    from shutil import copyfile
+if LOGGING_ACTIVE:
+    import logging
 
 if sys.version_info[0] == 2:  # Just checking your Python version to import Tkinter properly.
     from Tkinter import *
@@ -157,6 +177,7 @@ class Fullscreen_Window:
     CapturedImage = 0
     BackgroundImage = 0
     TextFailure = ""
+    ShutdownRequest = False
 
     def __init__(self):
         self.tk = Tk()
@@ -168,20 +189,22 @@ class Fullscreen_Window:
         self.canvas = Canvas(self.tk, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1],highlightthickness=0,bd=0,bg="black")
         self.canvas.pack(fill=BOTH, expand=YES)
         
-        if CAMERA == CAMERA_DSLR:
-            # configure gphoto logging
-            logging.basicConfig(format='%(levelname)s: %(name)s: %(message)s', level=logging.WARNING)
-            gp.check_result(gp.use_python_logging())
+        if LOGGING_ACTIVE:
+            logging.basicConfig(filename=LOGGING_FILE_FOLDER + LOGGING_FILE_PREFIX + time.ctime() + ".log", format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
+            
+            if CAMERA == CAMERA_DSLR:
+                # configure gphoto logging
+                gp.check_result(gp.use_python_logging())
 
-        print("Photobooth v%s started" % VERSION)
+        logging.info("Photobooth v%s started", VERSION)
         
-        print("Camera type: ")
+        logging.info("Camera type: ")
         if CAMERA == CAMERA_DSLR:
-            print("DSLR")
+            logging.info("DSLR")
         elif CAMERA == CAMERA_PI:
-            print("Pi")
+            logging.info("Pi")
         else:
-            print("Unknown! Set a correct camera type!")
+            logging.warning("Unknown! Set a correct camera type!")
         
         # check if the folders already exist
         if not os.path.exists(PHOTO_PATH):
@@ -219,8 +242,8 @@ class Fullscreen_Window:
     def shutdownButtonEvent(self, channel):
         if SHUTDOWN_GPIO_USE:
             if channel == SHUTDOWN_GPIO_PIN:
-                print("%s: Shutting down request via GPIO PIN. Shutting down now..." % time.ctime())
-                call("sudo shutdown -h now", shell=True)
+                logging.warning("%s: Shutting down request via GPIO PIN. Shutting down now...", time.ctime())
+                self.ShutdownRequest = True
         
     def take_picture(self, event=None): # gets called by button-1 (left mouse button)
         Fullscreen_Window.takePictureVar = True
@@ -358,6 +381,8 @@ class Fullscreen_Window:
             
             #button_takePhoto.wait_for_press()
             while self.takePictureVar is not True:
+                if self.ShutdownRequest: # if there was a shutdown request via external button, shutdown here to perform a clean exit
+                    call("sudo shutdown -h now", shell=True)
                 time.sleep(0.1)
                     
             # change the shown picture to the background
@@ -371,13 +396,14 @@ class Fullscreen_Window:
             ###### INITIALIZE CAMERAS WHILE RUN TIME
             if CAMERA == CAMERA_DSLR:
                 try:
+                    #self.cameraContext = gp.gp_context_new()
                     self.camera = gp.check_result(gp.gp_camera_new())
-                    gp.check_result(gp.gp_camera_init(self.camera))
-                    #text = gp.check_result(gp.gp_camera_get_summary(self.camera))
+                    gp.check_result(gp.gp_camera_init(self.camera))#, self.cameraContext))
+                    #text = gp.check_result(gp.gp_camera_get_summary(self.camera, self.cameraContext))
                     if False: # TODO: prüfen, ob livepreview available ist
                         self.livepreview = True
                 except:
-                    print('%s: Could not find any DSLR camera' % time.ctime())
+                    logging.error('Could not find any DSLR camera')
                     self.TextFailure = "Could not find any DSLR camera.\nCheck camera's battery"
             
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
@@ -428,9 +454,10 @@ class Fullscreen_Window:
                 try:
                     cameraFilePath = gp.check_result(gp.gp_camera_capture(self.camera, gp.GP_CAPTURE_IMAGE))
                     cameraFile = gp.check_result(gp.gp_camera_file_get(self.camera, cameraFilePath.folder, cameraFilePath.name, gp.GP_FILE_TYPE_NORMAL))
+                    logging.info('get image from folder: %s, name: %s', cameraFilePath.folder, cameraFilePath.name)
                     gp.check_result(gp.gp_file_save(cameraFile, imgPath))
                 except gp.GPhoto2Error:
-                    print("%s: Could not capture image!" % time.ctime())
+                    logging.error("Could not capture image!")
                     self.TextFailure = "Could not capture an image.\nCheck camera's battery"
                     
                     # be sure that there is no corrupted image file, so move the file to temporary trash
@@ -449,6 +476,30 @@ class Fullscreen_Window:
             
             ###### SHOW THE CAPUTRED IMAGE
             self.StateSlideshow = STATE_SLIDESHOW_CAPTURED_IMG
+            
+            ###### DSLR: store image on camera memory card
+            if CAMERA == CAMERA_DSLR:
+                if DSLR_STORE_PICTURE_ON_CAMERA:
+                    try:
+                        localCameraFile = gp.check_result(gp.gp_file_open(imgPath))
+                        gp.check_result(gp.gp_camera_folder_put_file(self.camera, CAMERA_FOLDER, file, gp.GP_FILE_TYPE_NORMAL, localCameraFile))
+                    except gp.GPhoto2Error:
+                        logging.error("Could not store image on camera!")
+                        self.TextFailure = "Could not store image on camera"
+            
+            if STORE_PICTURE_ALSO_ON_USB_DEVICE:
+                dirs = os.listdir(USB_DEVICE_MOUNT_POINT)
+                for dir in dirs:
+                    path = USB_DEVICE_MOUNT_POINT + dir + BKP_DEVICE_FOLDER_ON_USB_DEVICE
+                    # check if the folders already exist
+                    if not os.path.exists(path):
+                        os.makedirs(path)
+                    #print("Backup captured image to: %s" % path)
+                    try:
+                        copyfile(imgPath, path + file)
+                    except FileNotFoundError:
+                        logging.error("Could not backup file on usb device!")
+                                
             time.sleep(TIME_TO_SHOW_CAPTURED_IMAGE)
             
             ###### CONTINUE WITH SLIDESHOW
