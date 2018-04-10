@@ -26,6 +26,15 @@ Short instructions:
 
 Connect your DSLR via USB to the raspberry pi. Check if your camera is supported by gphoto2, see http://gphoto.org/proj/libgphoto2/support.php
 
+Disable auto-mount such that gphoto2 can access your camera, like:
+
+```
+sudo rm /usr/share/dbus-1/services/org.gtk.Private.GPhoto2VolumeMonitor.service
+sudo rm /usr/share/gvfs/mounts/gphoto2.mount
+sudo rm /usr/share/gvfs/remote-volume-monitors/gphoto2.monitor
+sudo rm /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
+```
+
 ## Configuration
 Check the configuration part of the main file to configure the photobooth software for your needs. Note, that you need to set the camera type!
 
