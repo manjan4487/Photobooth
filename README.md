@@ -141,7 +141,7 @@ Note, that you need to change the permission, such that the webserver can modify
 If you get mysql errors, the file permission may be still be wrong! The setup wizard did all mysql initializations when the file permissions were correct (for the web user).
 
 ### Domain name for Web Access
-Modify the hosts file on the pi `sudo nano /etc/hosts` and add the line `127.0.1.1 photo.booth`. If you have problems accessing the webserver via this domain name, you need to google for further information. After adding this line I could access the webserver by visiting `http://photo.booth`, note the http as prefix.
+Modify the hosts file on the pi `sudo nano /etc/hosts` and add the line `127.0.1.1 photobooth`. If you have problems accessing the webserver via this domain name, you need to google for further information. After adding this line I could access the webserver by visiting `http://photobooth`, note the http as prefix. For a domain like style you need to find out yourself.
 
 ### Hide mouse cursor
 If you want to hide the mouse cursor the whole time, you can simply edit the file /etc/lightdm/lightdm.conf and uncomment the line `x-server-command` line **under** `SeatDefaults`. Edit the line to `xserver-command=X -nocursor`
