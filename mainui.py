@@ -90,7 +90,7 @@ COUNTDOWN_OVERLAY_OFFSET_Y = 0
 SHUTDOWN_GPIO_USE = True
 SHUTDOWN_GPIO_PIN = 22 # in BCM Style (GPIO x)
 SHUTDOWN_GPIO_POLARITY = True # False for GPIO.FALLING, True for GPIO.RISING
-SHUTDOWN_GPIO_PULL = True # if True: pull_up if polarity is falling, pull_down if polarity is raising, else no pull
+SHUTDOWN_GPIO_PULL = False # if True: pull_up if polarity is falling, pull_down if polarity is raising, else no pull
 
 # information text that is shown during runtime
 INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://photobooth"
@@ -242,8 +242,8 @@ class Fullscreen_Window:
     def shutdownButtonEvent(self, channel):
         if SHUTDOWN_GPIO_USE:
             if channel == SHUTDOWN_GPIO_PIN:
-                logging.warning("%s: Shutting down request via GPIO PIN. Shutting down now...", time.ctime())
-                self.ShutdownRequest = True
+                logging.warning("Shutting down request via GPIO PIN. Shutting down now...")
+                Fullscreen_Window.ShutdownRequest = True
         
     def take_picture(self, event=None): # gets called by button-1 (left mouse button)
         Fullscreen_Window.takePictureVar = True
