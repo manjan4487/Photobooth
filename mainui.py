@@ -224,6 +224,7 @@ class Fullscreen_Window:
         self.update_ImageListForRandPreview()
         
         if SHUTDOWN_GPIO_USE:
+            GPIO.setmode(GPIO.BCM)
             if SHUTDOWN_GPIO_POLARITY:
                 polarity = GPIO.RISING
             else:
@@ -233,8 +234,9 @@ class Fullscreen_Window:
                     pull = GPIO.PUD_DOWN
                 else:
                     pull = GPIO.PUD_UP
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN, pull_up_down=pull)
+                GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN, pull_up_down=pull)
+            else:
+                GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN)
             GPIO.add_event_detect(SHUTDOWN_GPIO_PIN, polarity, callback=self.shutdownButtonEvent, bouncetime=200)
         
         self.tk.mainloop()
