@@ -147,3 +147,6 @@ Modify the hosts file on the pi `sudo nano /etc/hosts` and add the line `127.0.1
 If you want to hide the mouse cursor the whole time, you can simply edit the file /etc/lightdm/lightdm.conf and uncomment the line `x-server-command` line **under** `SeatDefaults`. Edit the line to `xserver-command=X -nocursor`
 
 If you just want to hide the cursor when you do not move the mouse, try [uncutter](https://jackbarber.co.uk/blog/2017-02-16-hide-raspberry-pi-mouse-cursor-in-raspbian-kiosk). But check out if it´s ok, when you use the mouse button to capture a new image.
+
+### Highly recommended
+It is highly recommended to backup your complete configured photobooth raspbian distribution. You can use [Pi-Clone](https://github.com/billw2/rpi-clone) to backup your whole sd card to another one. You can even use another sd card size for the backup!
