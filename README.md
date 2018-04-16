@@ -143,8 +143,14 @@ If you get mysql errors, the file permission may be still be wrong! The setup wi
 ### Domain name for Web Access
 Modify the hosts file on the pi `sudo nano /etc/hosts` and add the line `127.0.1.1 photobooth`. If you have problems accessing the webserver via this domain name, you need to google for further information. After adding this line I could access the webserver by visiting `http://photobooth`, note the http as prefix. For a domain like style you need to find out yourself.
 
+### Include RTC for correct system time
+If you use the raspberry pi as access point, you will need to set the system time every time after a reboot. As alternative you can add a GPS time module or a RTC module. To include a rtc module to the raspberry pi, you will need a hardware rtc module. Connect the rtc module, after that you can follow the [instructions](https://www.raspberrypi.org/forums/viewtopic.php?p=845588#p845588) to include the correct time measurement to the os.
+
+### Disable energy saving mode
+If you want to disable the screensaver and power saving mode, edit the file /etc/lightdm/lightdm.conf and uncomment the line `x-server-command` line **under** `SeatDefaults`. Edit the line to `xserver-command=X -s 0 -dpms` (or `xserver-command=X -nocursor -s 0 -dpms` when you want to hide the mouse cursor).
+
 ### Hide mouse cursor
-If you want to hide the mouse cursor the whole time, you can simply edit the file /etc/lightdm/lightdm.conf and uncomment the line `x-server-command` line **under** `SeatDefaults`. Edit the line to `xserver-command=X -nocursor`
+If you want to hide the mouse cursor the whole time, you can simply edit the file /etc/lightdm/lightdm.conf and uncomment the line `x-server-command` line **under** `SeatDefaults`. Edit the line to `xserver-command=X -nocursor` (or `xserver-command=X -nocursor -s 0 -dpms` when you want to disable energy saving modes).
 
 If you just want to hide the cursor when you do not move the mouse, try [uncutter](https://jackbarber.co.uk/blog/2017-02-16-hide-raspberry-pi-mouse-cursor-in-raspbian-kiosk). But check out if it´s ok, when you use the mouse button to capture a new image.
 
