@@ -20,7 +20,7 @@ CAMERA = CAMERA_DSLR
 # Defines the timing of changing the ImageView in the slideshow in seconds
 SLIDESHOW_CHANGE_TIME_S = 4
 
-SCREEN_RESOLUTION = (1680,1050)#(1280,960) #(1920,1080) # (height,width)
+SCREEN_RESOLUTION = (1920,1080)#(1680,1050)#(1280,960) #(1920,1080) # (height,width)
 
 PHOTOBOOTH_PATH = '/home/pi/Desktop/Photobooth/'
 
@@ -76,7 +76,7 @@ BACKGROUND_EFFECT_BLUR = False
 # factor = 1.0 means that the size is equivalent to the screen resolution (still depends
 # on the original picture size)
 # factors < 1.0 are possible as well
-COUNTDOWN_WIDTH_FACTOR = 2.8
+COUNTDOWN_WIDTH_FACTOR = 3.5
 COUNTDOWN_HEIGHT_FACTOR = 1.5
 
 # offset of the overlay of the countdown digits in x and y coordinates
@@ -94,15 +94,15 @@ SHUTDOWN_GPIO_PULL = False # if True: pull_up if polarity is falling, pull_down 
 
 # information text that is shown during runtime
 INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://photobooth"
-INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 200
-INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 28
-INFORMATION_TEXT_FONT = ('Arial','16')
-INFORMATION_TEXT_WIDTH = "300p"
+INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 240
+INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 30
+INFORMATION_TEXT_FONT = ('Arial','18')
+INFORMATION_TEXT_WIDTH = "350p"
 
 FAILURE_TEXT_WIDTH = "360p"
 FAILURE_TEXT_X = SCREEN_RESOLUTION[0] - 250
 FAILURE_TEXT_Y = SCREEN_RESOLUTION[1] - 130
-FAILURE_TEXT_FONT = ('Arial','22')
+FAILURE_TEXT_FONT = ('Arial','24')
 FAILURE_TEXT_COLOR = "red"
 
 # configuration for logging
@@ -396,6 +396,7 @@ class Fullscreen_Window:
             imgPath = "%s%s" % (PHOTO_PATH,file)
             
             ###### INITIALIZE CAMERAS WHILE RUN TIME
+            cameraInitialized = True
             if CAMERA == CAMERA_DSLR:
                 try:
                     #self.cameraContext = gp.gp_context_new()
@@ -406,8 +407,9 @@ class Fullscreen_Window:
                         self.livepreview = True
                 except:
                     logging.error('Could not find any DSLR camera')
-                    self.TextFailure = "Could not find any DSLR camera.\nCheck camera's battery"
-            
+                    self.TextFailure = "Could not find any DSLR camera.\nCheck camera's connection and battery"
+                    cameraInitialized = False
+
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
             if livepreviewavailable:
                 if CAMERA == CAMERA_PI:
@@ -460,7 +462,8 @@ class Fullscreen_Window:
                     gp.check_result(gp.gp_file_save(cameraFile, imgPath))
                 except gp.GPhoto2Error:
                     logging.error("Could not capture image!")
-                    self.TextFailure = "Could not capture an image.\nCheck camera's battery"
+                    if cameraInitialized  == True:
+                        self.TextFailure = "Could not capture an image.\nFocus could not be set.\nAdjust focus or place yourself correctly"
                     
                     # be sure that there is no corrupted image file, so move the file to temporary trash
                     tempTrashPath = "%sTRASH_%s" % (TEMP_TRASH_FOLDER, file)
