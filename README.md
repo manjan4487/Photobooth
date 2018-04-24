@@ -144,7 +144,22 @@ If you get mysql errors, the file permission may be still be wrong! The setup wi
 Modify the hosts file on the pi `sudo nano /etc/hosts` and add the line `127.0.1.1 photobooth`. If you have problems accessing the webserver via this domain name, you need to google for further information. After adding this line I could access the webserver by visiting `http://photobooth`, note the http as prefix. For a domain like style you need to find out yourself.
 
 ### Include RTC for correct system time
-If you use the raspberry pi as access point, you will need to set the system time every time after a reboot. As alternative you can add a GPS time module or a RTC module. To include a rtc module to the raspberry pi, you will need a hardware rtc module. Connect the rtc module, after that you can follow the [instructions](https://www.raspberrypi.org/forums/viewtopic.php?p=845588#p845588) (or [here [german]](http://www.linux-ratgeber.de/realtime-clock-rtc-ds3231-am-raspberry-pi-betreiben/)) to include the correct time measurement to the os.
+If you use the raspberry pi as access point, you will need to set the system time every time after a reboot. As alternative you can add a GPS time module or a RTC module. To include a rtc module to the raspberry pi, you will need a hardware rtc module. Connect the rtc module, after that you can follow the [instructions for Jessie](https://github.com/weewx/weewx/wiki/pi-RTC-with-raspbian-jessie) (or [here for other OS [german]](http://www.linux-ratgeber.de/realtime-clock-rtc-ds3231-am-raspberry-pi-betreiben/)) to include the correct time measurement to the os.
+
+Quick instructions:
+Via `sudo raspi-config` go to `Interfacing Options`, `I2C` and enable the I2C Interface. After that perform a reboot.
+
+`sudo apt-get install i2c-tools`
+
+In `sudo nano /boot/config.txt` you should see the line `dtparam=i2c=on`. Add the following line `dtoverlay=i2c-rtc,ds3231`, save and exit the editor. Via `sudo nano /lib/udev/hwclock-set` you need to comment out the following three lines:
+
+```
+if [ -e /run/system/system ]; then
+exit 0
+fi
+```
+
+Remove the fake hardware clock package with `sudo apt-get remove --purge fake-hwclock`. Ensure that the NTP service is active `timedatectl set-ntp true` and perform a reboot. When you have configured the correct system date and time (when you are connected to the internet you already should) set the hardware time with `sudo hwclock –w`. Now the hardware clock should be configured properly. Check it by disconnecting internet and shutdown the raspberry for a little. After strarting up again you can use `timedatectl status` to check the time.
 
 ### Disable energy saving mode
 If you want to disable the screensaver and power saving mode, edit the file /etc/lightdm/lightdm.conf and uncomment the line `x-server-command` line **under** `SeatDefaults`. Edit the line to `xserver-command=X -s 0 -dpms` (or `xserver-command=X -nocursor -s 0 -dpms` when you want to hide the mouse cursor).
