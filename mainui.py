@@ -56,7 +56,7 @@ COUNTDOWN_IMAGE_FOLDER = PHOTOBOOTH_PATH + 'images/countdown/'
 TIME_TO_SHOW_CAPTURED_IMAGE = 8
 
 # time between two digits of the countdown (in s)
-DELAY_BETWEEN_COUNTDOWN = 0.9
+DELAY_BETWEEN_COUNTDOWN = 0.95
 
 # define if the live preview should be used if available (Pi Cam and a few DSLR cameras support live preview)
 TRY_TO_USE_LIVE_PREVIEW = False
@@ -123,7 +123,7 @@ COUNTDOWN_FORMAT = '%sCountdown_%s_%s.png' # % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN
 
 # time difference to the delay between two countdown iterations to refresh the display
 # value was found by testing
-COUNTDOWN_REFRESH_DELTA = 0.4
+COUNTDOWN_REFRESH_DELTA = 0.3
 
 ##### developer edit stop
 
@@ -288,7 +288,7 @@ class Fullscreen_Window:
                     
                 self.LastChangeTimeSlideshow = time.time() # store time for next iteration
                 
-        elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background
+        elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background with countdown
             now = time.time()
             if now - self.LastChangeTimeCountdown > (DELAY_BETWEEN_COUNTDOWN - COUNTDOWN_REFRESH_DELTA):
 
