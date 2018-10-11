@@ -99,7 +99,7 @@ SHUTDOWN_GPIO_PULL = False # if True: pull_up if polarity is falling, pull_down 
 FAN_PWM_USE = True
 FAN_PWM_PIN = 14
 FAN_PWM_FREQ = 150
-FAN_PWM_DUTY = 40
+FAN_PWM_DUTY = 10
 
 # information text that is shown during runtime
 INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://photobooth"
@@ -108,11 +108,13 @@ INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 30
 INFORMATION_TEXT_FONT = ('Arial','18')
 INFORMATION_TEXT_WIDTH = "350p"
 
-FAILURE_TEXT_WIDTH = "360p"
-FAILURE_TEXT_X = SCREEN_RESOLUTION[0] - 250
-FAILURE_TEXT_Y = SCREEN_RESOLUTION[1] - 130
-FAILURE_TEXT_FONT = ('Arial','24')
+FAILURE_TEXT_WIDTH = "1060p"
+FAILURE_TEXT_X = SCREEN_RESOLUTION[0] - 890
+FAILURE_TEXT_Y = SCREEN_RESOLUTION[1] - 580
+FAILURE_TEXT_FONT = ('Arial','52')
 FAILURE_TEXT_COLOR = "red"
+FAILURE_TEXT_F_FOCUS = "Ups! Das war wohl nichts.\nDer Fokus konnte nicht gesetzt werden.\nVersuche es bitte noch einmal :)"
+FAILURE_TEXT_F_NOCAM = "Ups! Das war wohl nichts.\nDie Kameraverbindung konnte nicht hergestellt werden.\nBatterie leer?"
 
 # configuration for logging
 LOGGING_ACTIVE = True
@@ -428,7 +430,7 @@ class Fullscreen_Window:
                         self.livepreview = True
                 except:
                     logging.error('Could not find any DSLR camera')
-                    self.TextFailure = "Could not find any DSLR camera.\nCheck camera's connection and battery"
+                    self.TextFailure = FAILURE_TEXT_F_NOCAM
                     cameraInitialized = False
 
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
@@ -494,7 +496,7 @@ class Fullscreen_Window:
                 except gp.GPhoto2Error:
                     logging.error("Could not capture image!")
                     if cameraInitialized  == True:
-                        self.TextFailure = "Could not capture an image.\nFocus could not be set.\nAdjust focus or place yourself correctly"
+                        self.TextFailure = FAILURE_TEXT_F_FOCUS
                     
                     # be sure that there is no corrupted image file, so move the file to temporary trash
                     tempTrashPath = "%sTRASH_%s" % (TEMP_TRASH_FOLDER, file)
