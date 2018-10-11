@@ -6,7 +6,7 @@ edited by KS
 '''
 
 # Script version
-VERSION = 0.03
+VERSION = 0.04
 
 # do not edit the following lines
 CAMERA_PI = 0
@@ -20,17 +20,27 @@ CAMERA = CAMERA_DSLR
 # Defines the timing of changing the ImageView in the slideshow in seconds
 SLIDESHOW_CHANGE_TIME_S = 4
 
-SCREEN_RESOLUTION = (1280,960) #(1920,1080) # (height,width)
+SCREEN_RESOLUTION = (1920,1080)#(1680,1050)#(1280,960) #(1920,1080) # (height,width)
 
 PHOTOBOOTH_PATH = '/home/pi/Desktop/Photobooth/'
 
 # folder path, where new pictures will be saved
 # info: if folder does not exist, the folder will be created
-PHOTO_PATH = '/home/pi/Desktop/fotoboxImages/'
+PHOTO_PATH = '/home/pi/Desktop/PhotoboothPictures/'
+
+# if activated, the captured image is stored on the camera while displaying the image on the screen (so no delay will occur)
+# Note, that this did not work with my Nikon D60!
+DSLR_STORE_PICTURE_ON_CAMERA = False
+CAMERA_FOLDER = '/Event0/'
+
+# stores the captured picture also on the first usb device that is found
+STORE_PICTURE_ALSO_ON_USB_DEVICE = True
+USB_DEVICE_MOUNT_POINT = '/media/pi/'
+BKP_DEVICE_FOLDER_ON_USB_DEVICE = '/Event0/'
 
 # folder path, where corrupted pictures will be moved to such that never a picture could be erased in failure case
 # info: if folder does not exist, the folder will be created
-TEMP_TRASH_FOLDER = '/home/pi/Desktop/fotoboxImages/_temporaryTrash/'
+TEMP_TRASH_FOLDER = '/home/pi/Desktop/_temporaryTrash/'
 
 # countdown that ticks down when button/event was pressed/occured (in s)
 COUNTDOWN_S = 3 # e.g. 5 means countdown goes in range [4,3,2,1,0] + the first digit is shown while the camera is initialized
@@ -46,17 +56,20 @@ COUNTDOWN_IMAGE_FOLDER = PHOTOBOOTH_PATH + 'images/countdown/'
 TIME_TO_SHOW_CAPTURED_IMAGE = 8
 
 # time between two digits of the countdown (in s)
-DELAY_BETWEEN_COUNTDOWN = 0.9
+DELAY_BETWEEN_COUNTDOWN = 0.95
+
+# time like DELAY_BETWEEN_COUNTDOWN but for the last iteration (when the last number is displayed)
+DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION = 0.5
 
 # define if the live preview should be used if available (Pi Cam and a few DSLR cameras support live preview)
 TRY_TO_USE_LIVE_PREVIEW = False
 
 # background image to show if there is no live preview shown
-BACKGROUND_PICTURE = PHOTOBOOTH_PATH + 'images/background/Background_Wine_un_trans40.jpg'
+BACKGROUND_PICTURE = PHOTOBOOTH_PATH + 'images/background/Background_Railway.jpg'
 
 # activates a grayscale effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
-BACKGROUND_EFFECT_GRAYSCALE = False
+BACKGROUND_EFFECT_GRAYSCALE = True
 
 # activates a blur effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
@@ -66,7 +79,7 @@ BACKGROUND_EFFECT_BLUR = False
 # factor = 1.0 means that the size is equivalent to the screen resolution (still depends
 # on the original picture size)
 # factors < 1.0 are possible as well
-COUNTDOWN_WIDTH_FACTOR = 2.8
+COUNTDOWN_WIDTH_FACTOR = 3.5
 COUNTDOWN_HEIGHT_FACTOR = 1.5
 
 # offset of the overlay of the countdown digits in x and y coordinates
@@ -80,34 +93,43 @@ COUNTDOWN_OVERLAY_OFFSET_Y = 0
 SHUTDOWN_GPIO_USE = True
 SHUTDOWN_GPIO_PIN = 22 # in BCM Style (GPIO x)
 SHUTDOWN_GPIO_POLARITY = True # False for GPIO.FALLING, True for GPIO.RISING
-SHUTDOWN_GPIO_PULL = True # if True: pull_up if polarity is failling, pull_down if polarity is raising, else no pull
+SHUTDOWN_GPIO_PULL = False # if True: pull_up if polarity is falling, pull_down if polarity is raising, else no pull
+
+# define if you want to use a pwm to control an external fan
+FAN_PWM_USE = True
+FAN_PWM_PIN = 14
+FAN_PWM_FREQ = 150
+FAN_PWM_DUTY = 40
 
 # information text that is shown during runtime
-INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://192.168.178.68"
-INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 200
-INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 28
-INFORMATION_TEXT_FONT = ('Arial','16')
-INFORMATION_TEXT_WIDTH = "300p"
+INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://photobooth.local"
+INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 240
+INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 30
+INFORMATION_TEXT_FONT = ('Arial','18')
+INFORMATION_TEXT_WIDTH = "350p"
 
 FAILURE_TEXT_WIDTH = "360p"
 FAILURE_TEXT_X = SCREEN_RESOLUTION[0] - 250
 FAILURE_TEXT_Y = SCREEN_RESOLUTION[1] - 130
-FAILURE_TEXT_FONT = ('Arial','22')
+FAILURE_TEXT_FONT = ('Arial','24')
 FAILURE_TEXT_COLOR = "red"
+
+# configuration for logging
+LOGGING_ACTIVE = True
+LOGGING_FILE_PREFIX = "photobooth_log_" # the ctime at script start is added to the log file *.log
+LOGGING_FILE_FOLDER = "/home/pi/Desktop/Logs/"
+
+# TODO use of gpio to capture an image
 
 ##### edit stop
 
 ##### DEVELOPER EDIT START #####
 # refresh time to check if we need to set a new picture to the front
-PERIOD_PICTURE_REFRESH = 15 # in ms
+PERIOD_PICTURE_REFRESH = 25 # in ms
 
 # file format used to find the countdown pictures
 # first argument has to be the COUNTDOWN_STYLE and the second the number of the countdown
 COUNTDOWN_FORMAT = '%sCountdown_%s_%s.png' # % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE,i)
-
-# time difference to the delay between two countdown iterations to refresh the display
-# value was found by testing
-COUNTDOWN_REFRESH_DELTA = 0.4
 
 ##### developer edit stop
 
@@ -130,14 +152,19 @@ import threading
 import sys
 import os
 import logging
+import RPi.GPIO as GPIO
+import time
+
 if CAMERA == CAMERA_PI:
     from picamera import PiCamera
 elif CAMERA == CAMERA_DSLR:
     import gphoto2 as gp
-if SHUTDOWN_GPIO_USE: # TODO or when a gpio is used to capture an image
-    import RPi.GPIO as GPIO
+if SHUTDOWN_GPIO_USE:
     from subprocess import call
-import time
+if STORE_PICTURE_ALSO_ON_USB_DEVICE:
+    from shutil import copyfile
+if LOGGING_ACTIVE:
+    import logging
 
 if sys.version_info[0] == 2:  # Just checking your Python version to import Tkinter properly.
     from Tkinter import *
@@ -157,6 +184,10 @@ class Fullscreen_Window:
     CapturedImage = 0
     BackgroundImage = 0
     TextFailure = ""
+    ShutdownRequest = False
+    oldCountdownValue = 0
+    
+    GPIO.setmode(GPIO.BCM)
 
     def __init__(self):
         self.tk = Tk()
@@ -168,20 +199,22 @@ class Fullscreen_Window:
         self.canvas = Canvas(self.tk, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1],highlightthickness=0,bd=0,bg="black")
         self.canvas.pack(fill=BOTH, expand=YES)
         
-        if CAMERA == CAMERA_DSLR:
-            # configure gphoto logging
-            logging.basicConfig(format='%(levelname)s: %(name)s: %(message)s', level=logging.WARNING)
-            gp.check_result(gp.use_python_logging())
+        if LOGGING_ACTIVE:
+            logging.basicConfig(filename=LOGGING_FILE_FOLDER + LOGGING_FILE_PREFIX + time.ctime() + ".log", format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
+            
+            if CAMERA == CAMERA_DSLR:
+                # configure gphoto logging
+                gp.check_result(gp.use_python_logging())
 
-        print("Photobooth v%s started" % VERSION)
+        logging.info("Photobooth v%s started", VERSION)
         
-        print("Camera type: ")
+        logging.info("Camera type: ")
         if CAMERA == CAMERA_DSLR:
-            print("DSLR")
+            logging.info("DSLR")
         elif CAMERA == CAMERA_PI:
-            print("Pi")
+            logging.info("Pi")
         else:
-            print("Unknown! Set a correct camera type!")
+            logging.warning("Unknown! Set a correct camera type!")
         
         # check if the folders already exist
         if not os.path.exists(PHOTO_PATH):
@@ -210,17 +243,24 @@ class Fullscreen_Window:
                     pull = GPIO.PUD_DOWN
                 else:
                     pull = GPIO.PUD_UP
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN, pull_up_down=pull)
+                GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN, pull_up_down=pull)
+            else:
+                GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN)
             GPIO.add_event_detect(SHUTDOWN_GPIO_PIN, polarity, callback=self.shutdownButtonEvent, bouncetime=200)
+            
+        if FAN_PWM_USE:
+            GPIO.setup(FAN_PWM_PIN, GPIO.OUT)
+            p = GPIO.PWM(FAN_PWM_PIN, FAN_PWM_FREQ)
+            p.start(FAN_PWM_DUTY)
+            #p.ChangeDutyCycle(30)
         
         self.tk.mainloop()
         
     def shutdownButtonEvent(self, channel):
         if SHUTDOWN_GPIO_USE:
             if channel == SHUTDOWN_GPIO_PIN:
-                print("%s: Shutting down request via GPIO PIN. Shutting down now..." % time.ctime())
-                call("sudo shutdown -h now", shell=True)
+                logging.warning("Shutting down request via GPIO PIN. Shutting down now...")
+                Fullscreen_Window.ShutdownRequest = True
         
     def take_picture(self, event=None): # gets called by button-1 (left mouse button)
         Fullscreen_Window.takePictureVar = True
@@ -261,17 +301,21 @@ class Fullscreen_Window:
                     self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT,width=INFORMATION_TEXT_WIDTH)
                     self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
                     
-                self.LastChangeTimeSlideshow = time.time() # store time for next iteration
+                self.LastChangeTimeSlideshow = now # store time for next iteration
                 
-        elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background
-            now = time.time()
-            if now - self.LastChangeTimeCountdown > (DELAY_BETWEEN_COUNTDOWN - COUNTDOWN_REFRESH_DELTA):
+        elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background with countdown
+            if self.oldCountdownValue != self.Countdown:
+            
+                self.oldCountdownValue = self.Countdown
+            
+                #now = time.time()
+                #if now - self.LastChangeTimeCountdown > (DELAY_BETWEEN_COUNTDOWN - COUNTDOWN_REFRESH_DELTA) or self.Countdown == COUNTDOWN_S:
 
                 # get the background image with already placed effects
                 self.resizedImg  = self.BackgroundImage.copy()
                 
                 # paste the countdown image on top of the background image
-                numberPic = PIL.Image.open(COUNTDOWN_FORMAT % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE,self.Countdown))
+                numberPic = PIL.Image.open(COUNTDOWN_FORMAT % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE, self.oldCountdownValue))
                 numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
                 self.resizedImg.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_X,int(SCREEN_RESOLUTION[1]/2-SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_Y), numberPic)
                 
@@ -283,7 +327,7 @@ class Fullscreen_Window:
                 # refresh overlayed text (just the failure message if available)
                 self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
                 
-                self.LastChangeTimeCountdown = time.time() # store time for next iteration
+                #self.LastChangeTimeCountdown = now # store time for next iteration
             
         elif self.StateSlideshow == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
             if self.CapturedImage != 0: # if a picture was captured
@@ -358,10 +402,13 @@ class Fullscreen_Window:
             
             #button_takePhoto.wait_for_press()
             while self.takePictureVar is not True:
-                time.sleep(0.1)
-                    
+                if self.ShutdownRequest: # if there was a shutdown request via external button, shutdown here to perform a clean exit
+                    call("sudo shutdown -h now", shell=True)
+                time.sleep(0.05)
+            
             # change the shown picture to the background
             self.StateSlideshow = STATE_SLIDESHOW_BACKGROUND
+            timeLastIterationStart = time.time()
             
             # set the new filename
             now = time.strftime("%Y%m%d_%H-%M-%S")
@@ -369,17 +416,20 @@ class Fullscreen_Window:
             imgPath = "%s%s" % (PHOTO_PATH,file)
             
             ###### INITIALIZE CAMERAS WHILE RUN TIME
+            cameraInitialized = True
             if CAMERA == CAMERA_DSLR:
                 try:
+                    #self.cameraContext = gp.gp_context_new()
                     self.camera = gp.check_result(gp.gp_camera_new())
-                    gp.check_result(gp.gp_camera_init(self.camera))
-                    #text = gp.check_result(gp.gp_camera_get_summary(self.camera))
+                    gp.check_result(gp.gp_camera_init(self.camera))#, self.cameraContext))
+                    #text = gp.check_result(gp.gp_camera_get_summary(self.camera, self.cameraContext))
                     if False: # TODO: prüfen, ob livepreview available ist
                         self.livepreview = True
                 except:
-                    print('%s: Could not find any DSLR camera' % time.ctime())
-                    self.TextFailure = "Could not find any DSLR camera.\nCheck camera's battery"
-            
+                    logging.error('Could not find any DSLR camera')
+                    self.TextFailure = "Could not find any DSLR camera.\nCheck camera's connection and battery"
+                    cameraInitialized = False
+
             ###### START LIVE PREVIEW OR SHOW BACKGROUND IMAGE
             if livepreviewavailable:
                 if CAMERA == CAMERA_PI:
@@ -389,25 +439,35 @@ class Fullscreen_Window:
                     pass # TODO start live preview
 
             ###### COUNTDOWN LOOP
-            for i in range(COUNTDOWN_S):
-                        
-                if livepreviewavailable:
-                    if CAMERA == CAMERA_PI:
-                        mycam.annotate_text = "%s" % (COUNTDOWN_S - i - 1)
-                    elif CAMERA == CAMERA_DSLR:
-                        pass # TODO
-                else: # background is displayed by other thread
-                    self.Countdown = COUNTDOWN_S - i - 1 # just set the used countdown
+            countdownOngoing = True
+            while countdownOngoing:
+                
+                # dslr cameras need a little to capture image, so wait less in the last iteration
+                # Pi camera captures image immediately, so we can wait the complete countdown
+                if self.Countdown != 0 or CAMERA == CAMERA_PI:
+                    currentDelay = DELAY_BETWEEN_COUNTDOWN
+                else:
+                    currentDelay = DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION
                     
                 # handle the delay per iteration
-                if CAMERA == CAMERA_PI:
-                    # Pi camera captures image immediately, so we can wait the complete countdown
-                    time.sleep(DELAY_BETWEEN_COUNTDOWN)
-                elif CAMERA == CAMERA_DSLR:
-                    # dslr cameras need a little to capture image, so skip the last delay
-                    if i != COUNTDOWN_S:
-                        time.sleep(DELAY_BETWEEN_COUNTDOWN)
-                        
+                now = time.time()
+                if (now - timeLastIterationStart) > currentDelay:
+                    if self.Countdown == 0:
+                        countdownOngoing = False # break out of loop. Countdown finished
+                    else:
+                        self.Countdown = self.Countdown - 1
+                    
+                    timeLastIterationStart = now
+                    
+                if livepreviewavailable:
+                    if CAMERA == CAMERA_PI:
+                        mycam.annotate_text = "%s" % self.Countdown
+                    elif CAMERA == CAMERA_DSLR:
+                        pass # TODO
+                
+                time.sleep(0.05)
+                
+            # end of loop
             
             ###### POST LIVE PREVIEW
             if livepreviewavailable:
@@ -428,10 +488,12 @@ class Fullscreen_Window:
                 try:
                     cameraFilePath = gp.check_result(gp.gp_camera_capture(self.camera, gp.GP_CAPTURE_IMAGE))
                     cameraFile = gp.check_result(gp.gp_camera_file_get(self.camera, cameraFilePath.folder, cameraFilePath.name, gp.GP_FILE_TYPE_NORMAL))
+                    logging.info('get image from folder: %s, name: %s', cameraFilePath.folder, cameraFilePath.name)
                     gp.check_result(gp.gp_file_save(cameraFile, imgPath))
                 except gp.GPhoto2Error:
-                    print("%s: Could not capture image!" % time.ctime())
-                    self.TextFailure = "Could not capture an image.\nCheck camera's battery"
+                    logging.error("Could not capture image!")
+                    if cameraInitialized  == True:
+                        self.TextFailure = "Could not capture an image.\nFocus could not be set.\nAdjust focus or place yourself correctly"
                     
                     # be sure that there is no corrupted image file, so move the file to temporary trash
                     tempTrashPath = "%sTRASH_%s" % (TEMP_TRASH_FOLDER, file)
@@ -449,6 +511,30 @@ class Fullscreen_Window:
             
             ###### SHOW THE CAPUTRED IMAGE
             self.StateSlideshow = STATE_SLIDESHOW_CAPTURED_IMG
+            
+            ###### DSLR: store image on camera memory card
+            if CAMERA == CAMERA_DSLR:
+                if DSLR_STORE_PICTURE_ON_CAMERA:
+                    try:
+                        localCameraFile = gp.check_result(gp.gp_file_open(imgPath))
+                        gp.check_result(gp.gp_camera_folder_put_file(self.camera, CAMERA_FOLDER, file, gp.GP_FILE_TYPE_NORMAL, localCameraFile))
+                    except gp.GPhoto2Error:
+                        logging.error("Could not store image on camera!")
+                        self.TextFailure = "Could not store image on camera"
+            
+            if STORE_PICTURE_ALSO_ON_USB_DEVICE:
+                dirs = os.listdir(USB_DEVICE_MOUNT_POINT)
+                for dir in dirs:
+                    path = USB_DEVICE_MOUNT_POINT + dir + BKP_DEVICE_FOLDER_ON_USB_DEVICE
+                    # check if the folders already exist
+                    if not os.path.exists(path):
+                        os.makedirs(path)
+                    #print("Backup captured image to: %s" % path)
+                    try:
+                        copyfile(imgPath, path + file)
+                    except FileNotFoundError:
+                        logging.error("Could not backup file on usb device!")
+                                
             time.sleep(TIME_TO_SHOW_CAPTURED_IMAGE)
             
             ###### CONTINUE WITH SLIDESHOW
