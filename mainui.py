@@ -102,7 +102,7 @@ FAN_PWM_FREQ = 150
 FAN_PWM_DUTY = 40
 
 # information text that is shown during runtime
-INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://photobooth.local"
+INFORMATION_TEXT = "Picture access in WIFI 'Photobooth':\nhttp://photobooth"
 INFORMATION_TEXT_X = SCREEN_RESOLUTION[0] - 240
 INFORMATION_TEXT_Y = SCREEN_RESOLUTION[1] - 30
 INFORMATION_TEXT_FONT = ('Arial','18')
@@ -234,6 +234,7 @@ class Fullscreen_Window:
         self.update_ImageListForRandPreview()
         
         if SHUTDOWN_GPIO_USE:
+            GPIO.setmode(GPIO.BCM)
             if SHUTDOWN_GPIO_POLARITY:
                 polarity = GPIO.RISING
             else:
@@ -405,7 +406,7 @@ class Fullscreen_Window:
                 if self.ShutdownRequest: # if there was a shutdown request via external button, shutdown here to perform a clean exit
                     call("sudo shutdown -h now", shell=True)
                 time.sleep(0.05)
-            
+
             # change the shown picture to the background
             self.StateSlideshow = STATE_SLIDESHOW_BACKGROUND
             timeLastIterationStart = time.time()
