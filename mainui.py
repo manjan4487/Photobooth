@@ -1,12 +1,27 @@
 '''
+Simple Photobooth Software
 Created on 29.01.2018
 
-@author: MJ
-edited by KS
+Features:
+ - use of Raspberry PI camera
+ - use of DSLR (tested with Nikon D60)
+ - use of remote USB mouse for wireless capturing
+ - shutdown button for secure poweroff
+ - fan support
+ - individual backgrounds with few available effects
+ - custom countdown pictures can be integrated very simple
+ - countdown pictures can be scaled as desired
+ - log files available for failure evaluation
+ - live preview for Raspberry PI camera
+ - prepared for live preview with DSLRs (not implemented yet)
+ - live created additional backup of captured image on USB stick
+ - failure messages are printed on display (e.g. camera's battery empty)
+
+@author: KS (main frame from MJ)
 '''
 
 # Script version
-VERSION = 0.04
+VERSION = 0.05
 
 # do not edit the following lines
 CAMERA_PI = 0
@@ -43,7 +58,7 @@ BKP_DEVICE_FOLDER_ON_USB_DEVICE = '/Event0/'
 TEMP_TRASH_FOLDER = '/home/pi/Desktop/_temporaryTrash/'
 
 # countdown that ticks down when button/event was pressed/occured (in s)
-COUNTDOWN_S = 3 # e.g. 5 means countdown goes in range [4,3,2,1,0] + the first digit is shown while the camera is initialized
+COUNTDOWN_S = 3 # e.g. 5 means countdown goes in range [5,4,3,2,1,0] + the first digit is shown while the camera is initialized
 
 # choose a countdown style. Style name is used in PNG files like "Countdown_%s_x.png" % COUNTDOWN_STYLE, see COUNTDOWN_FORMAT
 # You can create your own style: name the new files with the style name you have chosen here
@@ -53,23 +68,26 @@ COUNTDOWN_STYLE = 'classic'
 COUNTDOWN_IMAGE_FOLDER = PHOTOBOOTH_PATH + 'images/countdown/'
 
 # the time that a captured image is displayed until the slideshow continues
-TIME_TO_SHOW_CAPTURED_IMAGE = 8
+TIME_TO_SHOW_CAPTURED_IMAGE = 7
+
+# the time that shows a occurred failure message after trying to capture an image
+TIME_TO_SHOW_FAILURE_MSG = 4
 
 # time between two digits of the countdown (in s)
 DELAY_BETWEEN_COUNTDOWN = 0.95
 
 # time like DELAY_BETWEEN_COUNTDOWN but for the last iteration (when the last number is displayed)
-DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION = 0.5
+DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION = 0.7
 
 # define if the live preview should be used if available (Pi Cam and a few DSLR cameras support live preview)
 TRY_TO_USE_LIVE_PREVIEW = False
 
 # background image to show if there is no live preview shown
-BACKGROUND_PICTURE = PHOTOBOOTH_PATH + 'images/background/Background_Railway.jpg'
+BACKGROUND_PICTURE = PHOTOBOOTH_PATH + 'images/background/Background_Mojito.jpg'
 
 # activates a grayscale effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
-BACKGROUND_EFFECT_GRAYSCALE = True
+BACKGROUND_EFFECT_GRAYSCALE = False
 
 # activates a blur effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
@@ -126,8 +144,6 @@ LOGGING_FILE_FOLDER = "/home/pi/Desktop/Logs/"
 ##### edit stop
 
 ##### DEVELOPER EDIT START #####
-# refresh time to check if we need to set a new picture to the front
-PERIOD_PICTURE_REFRESH = 25 # in ms
 
 # file format used to find the countdown pictures
 # first argument has to be the COUNTDOWN_STYLE and the second the number of the countdown
@@ -174,31 +190,29 @@ else:
     from tkinter import *
 
 
-class Fullscreen_Window:
-
-    image_list = []    
+class Fullscreen_Window:    
     lockVar = False
     takePictureVar = False
     StateSlideshow = STATE_SLIDESHOW_IDLE
     Countdown = 0
-    LastChangeTimeSlideshow = 0
-    LastChangeTimeCountdown = 0
+    CurrentDelay = 0
     CapturedImage = 0
     BackgroundImage = 0
     TextFailure = ""
     ShutdownRequest = False
     oldCountdownValue = 0
+    resizedImage = None
     
     GPIO.setmode(GPIO.BCM)
 
-    def __init__(self):
-        self.tk = Tk()
+    def __init__(self, master=None):
+        self.tk = master
         self.state = True
-        self.tk.attributes("-fullscreen", self.state)
-        self.tk.bind("<F11>", self.toggle_fullscreen)
-        self.tk.bind("<Escape>", self.end_fullscreen)
-        self.tk.bind("<Button-1>", self.take_picture)
-        self.canvas = Canvas(self.tk, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1],highlightthickness=0,bd=0,bg="black")
+        master.attributes("-fullscreen", self.state)
+        master.bind("<F11>", self.toggle_fullscreen)
+        master.bind("<Escape>", self.end_fullscreen)
+        master.bind("<Button-1>", self.take_picture)
+        self.canvas = Canvas(master, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1],highlightthickness=0,bd=0,bg="black")
         self.canvas.pack(fill=BOTH, expand=YES)
         
         if LOGGING_ACTIVE:
@@ -233,8 +247,6 @@ class Fullscreen_Window:
         if BACKGROUND_EFFECT_BLUR: # may use the blur effect
             self.BackgroundImage = self.BackgroundImage.filter(ImageFilter.BLUR)
             
-        self.update_ImageListForRandPreview()
-        
         if SHUTDOWN_GPIO_USE:
             GPIO.setmode(GPIO.BCM)
             if SHUTDOWN_GPIO_POLARITY:
@@ -256,17 +268,15 @@ class Fullscreen_Window:
             p = GPIO.PWM(FAN_PWM_PIN, FAN_PWM_FREQ)
             p.start(FAN_PWM_DUTY)
             #p.ChangeDutyCycle(30)
-        
-        self.tk.mainloop()
-        
+
     def shutdownButtonEvent(self, channel):
         if SHUTDOWN_GPIO_USE:
             if channel == SHUTDOWN_GPIO_PIN:
                 logging.warning("Shutting down request via GPIO PIN. Shutting down now...")
-                Fullscreen_Window.ShutdownRequest = True
+                self.ShutdownRequest = True
         
     def take_picture(self, event=None): # gets called by button-1 (left mouse button)
-        Fullscreen_Window.takePictureVar = True
+        self.takePictureVar = True
         return "break" # TODO umschaltbar machen zwischen GPIO button und maus taste
     
     def toggle_fullscreen(self, event=None):
@@ -279,86 +289,117 @@ class Fullscreen_Window:
         self.tk.attributes("-fullscreen", False)
         return "break"
         
-    def update_ImageListForRandPreview(self):
-        if self.StateSlideshow == STATE_SLIDESHOW_IDLE: # show slideshow
-            now = time.time()
-            if now - self.LastChangeTimeSlideshow > SLIDESHOW_CHANGE_TIME_S:
-                if not self.lockVar:
-                    # Get all Images in photoPath
-                    for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
-                        self.im=PIL.Image.open(filename)
-                        self.image_list.append(self.im.filename)
+    def updateGuiTask(self):
+        lastChangeTimeSlideshow = 0
+        lastChangeTimeCountdown = 0
+        lastChangeTimeCaptured = 0
+        image_list = []
+        
+        toggleImageHolder = False
+ 
+        while 1 :
+            if self.StateSlideshow == STATE_SLIDESHOW_IDLE: # show slideshow
+                now = time.time()
+                if now - lastChangeTimeSlideshow > SLIDESHOW_CHANGE_TIME_S:
+                    if not self.lockVar:
+                        image_list = []
+                        # Get all Images in photoPath
+                        for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
+                            im=PIL.Image.open(filename)
+                            image_list.append(im.filename)
+                            
+                    if len(image_list) > 0:
+                        # Calc. random number for Image which has to be shown
+                        randomnumber = randint(0, len(image_list)-1)
+
+                        # Resize Image, so all Images have the same size
+                        newImgTmp = ImageOps.fit(PIL.Image.open(image_list[randomnumber]), SCREEN_RESOLUTION)
                         
-                if len(self.image_list) > 0:
-                    # Calc. random number for Image which has to be shown
-                    self.randomnumber = randint(0, len(self.image_list)-1)
-                    
-                    # Resize Image, so all Images have the same size
-                    self.resizedImg = ImageOps.fit(PIL.Image.open(self.image_list[self.randomnumber]), SCREEN_RESOLUTION)
-                    # Load the resized Image with PhotoImage
-                    self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                    # Put the image into the canvas object
-                    self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
-                    
-                    # refresh overlayed text
-                    self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT,width=INFORMATION_TEXT_WIDTH)
-                    self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
-                    
-                self.LastChangeTimeSlideshow = now # store time for next iteration
-                
-        elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background with countdown
-            if self.oldCountdownValue != self.Countdown:
-            
-                self.oldCountdownValue = self.Countdown
-            
-                #now = time.time()
-                #if now - self.LastChangeTimeCountdown > (DELAY_BETWEEN_COUNTDOWN - COUNTDOWN_REFRESH_DELTA) or self.Countdown == COUNTDOWN_S:
+                        # Load the resized Image with PhotoImage and put the image into the canvas object
+                        if toggleImageHolder:
+                            newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                        else:
+                            #newImg = ImageOps.fit(PIL.Image.open(image_list[randomnumber]), SCREEN_RESOLUTION)
+                            newImg = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                            
+                        toggleImageHolder = not toggleImageHolder
 
-                # get the background image with already placed effects
-                self.resizedImg  = self.BackgroundImage.copy()
-                
-                # paste the countdown image on top of the background image
-                numberPic = PIL.Image.open(COUNTDOWN_FORMAT % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE, self.oldCountdownValue))
-                numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
-                self.resizedImg.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_X,int(SCREEN_RESOLUTION[1]/2-SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_Y), numberPic)
-                
-                #Load the resized Image with PhotoImage
-                self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                #Put the image into the canvas object
-                self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
-                
-                # refresh overlayed text (just the failure message if available)
-                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
-                
-                #self.LastChangeTimeCountdown = now # store time for next iteration
-            
-        elif self.StateSlideshow == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
-            if self.CapturedImage != 0: # if a picture was captured
-                #Resize Image, so all Images have the same size
-                self.resizedImg = ImageOps.fit(PIL.Image.open(self.CapturedImage), SCREEN_RESOLUTION)
-                #Load the resized Image with PhotoImage
-                self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                #Put the image into the canvas object
-                self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
-                
-                # refresh overlayed text
-                # but only when a failure occurred, no info text here
-                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
-            else: # failure case. Could not capture an image
-                # get the background image with already placed effects
-                self.resizedImg  = self.BackgroundImage.copy()
-                
-                #Load the resized Image with PhotoImage
-                self.resizedImg = PIL.ImageTk.PhotoImage(self.resizedImg)
-                #Put the image into the canvas object
-                self.canvas.create_image(0,0,anchor=NW,image=self.resizedImg)
-                
-                # refresh overlayed text (just the failure message if available)
-                self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                        # refresh overlayed text
+                        self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT,width=INFORMATION_TEXT_WIDTH)
+                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                        
+                    lastChangeTimeSlideshow = now # store time for next iteration
 
-        #Update Timer
-        self.tk.after(PERIOD_PICTURE_REFRESH, self.update_ImageListForRandPreview)
+            elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background with countdown
+                if self.Countdown >= 0:
+                    now = time.time()
+                    if now - lastChangeTimeCountdown > DELAY_BETWEEN_COUNTDOWN:
+                        # get the background image with already placed effects
+                        newImgTmp = self.BackgroundImage.copy()
+                        
+                        # paste the countdown image on top of the background image
+                        numberPic = PIL.Image.open(COUNTDOWN_FORMAT % (COUNTDOWN_IMAGE_FOLDER,COUNTDOWN_STYLE, self.Countdown))
+                        numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
+                        newImgTmp.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_X,int(SCREEN_RESOLUTION[1]/2-SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_Y), numberPic)
+                        
+                        # Load the resized Image with PhotoImage and put the image into the canvas object
+                        if toggleImageHolder:
+                            newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                        else:
+                            newImg = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                        
+                        toggleImageHolder = not toggleImageHolder
+                        
+                        # refresh overlayed text (just the failure message if available)
+                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                        
+                        lastChangeTimeCountdown = now # store time for next iteration
+                        
+                        self.Countdown = self.Countdown - 1
+                
+            elif self.StateSlideshow == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
+                now = time.time()
+                if now - lastChangeTimeCaptured > TIME_TO_SHOW_CAPTURED_IMAGE:
+                    if self.CapturedImage != 0: # if a picture was captured
+                        #Resize Image, so all Images have the same size
+                        newImgTmp = ImageOps.fit(PIL.Image.open(self.CapturedImage), SCREEN_RESOLUTION)
+                        
+                        # Load the resized Image with PhotoImage and put the image into the canvas object
+                        if toggleImageHolder:
+                            newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                        else:
+                            newImg = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                            
+                        toggleImageHolder = not toggleImageHolder
 
+                        # refresh overlayed text
+                        # but only when a failure occurred, no info text here
+                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                    else: # failure case. Could not capture an image
+                        # get the background image with already placed effects
+                        newImgTmp  = self.BackgroundImage.copy()
+                        
+                        # Load the resized Image with PhotoImage and put the image into the canvas object
+                        if toggleImageHolder:
+                            newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                        else:
+                            newImg = PIL.ImageTk.PhotoImage(newImgTmp)
+                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                            
+                        toggleImageHolder = not toggleImageHolder
+                        
+                        # refresh overlayed text (just the failure message if available)
+                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+
+                    lastChangeTimeCaptured = now
+                    
     def camTask(self):
         livepreview = False
         
@@ -395,6 +436,7 @@ class Fullscreen_Window:
             # initialze variables for this iteration
             self.takePictureVar = False
             self.Countdown = COUNTDOWN_S
+            self.CountdownOngoing = True
             self.TextFailure = ""
             
             ###### CHECK IF WE NEED TO SHOW LIVE PREVIEW OR BACKGROUND
@@ -442,35 +484,18 @@ class Fullscreen_Window:
                     pass # TODO start live preview
 
             ###### COUNTDOWN LOOP
-            countdownOngoing = True
-            while countdownOngoing:
-                
-                # dslr cameras need a little to capture image, so wait less in the last iteration
-                # Pi camera captures image immediately, so we can wait the complete countdown
-                if self.Countdown != 0 or CAMERA == CAMERA_PI:
-                    currentDelay = DELAY_BETWEEN_COUNTDOWN
-                else:
-                    currentDelay = DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION
-                    
-                # handle the delay per iteration
-                now = time.time()
-                if (now - timeLastIterationStart) > currentDelay:
-                    if self.Countdown == 0:
-                        countdownOngoing = False # break out of loop. Countdown finished
-                    else:
-                        self.Countdown = self.Countdown - 1
-                    
-                    timeLastIterationStart = now
-                    
+            while self.Countdown > 0:
                 if livepreviewavailable:
                     if CAMERA == CAMERA_PI:
                         mycam.annotate_text = "%s" % self.Countdown
                     elif CAMERA == CAMERA_DSLR:
                         pass # TODO
                 
-                time.sleep(0.05)
+                #time.sleep(0.05)
                 
             # end of loop
+            
+            time.sleep(DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION)
             
             ###### POST LIVE PREVIEW
             if livepreviewavailable:
@@ -537,8 +562,11 @@ class Fullscreen_Window:
                         copyfile(imgPath, path + file)
                     except FileNotFoundError:
                         logging.error("Could not backup file on usb device!")
-                                
-            time.sleep(TIME_TO_SHOW_CAPTURED_IMAGE)
+            
+            if self.CapturedImage != 0: # no failure or at least a picture could be captured
+                time.sleep(TIME_TO_SHOW_CAPTURED_IMAGE)
+            else: # the (annoying) failure message is shown for a shorter time
+                time.sleep(TIME_TO_SHOW_FAILURE_MSG)
             
             ###### CONTINUE WITH SLIDESHOW
             self.StateSlideshow = STATE_SLIDESHOW_IDLE
@@ -547,11 +575,18 @@ if __name__ == '__main__':
 
     try:
         
-        # Starting Camera Thread
-        _thread.start_new_thread(Fullscreen_Window.camTask,(Fullscreen_Window,))
-        # Starting Gallery View
-        _thread.start_new_thread(Fullscreen_Window(),(Fullscreen_Window,))
+        root = Tk()
+        
+        w = Fullscreen_Window(master=root)
    
+        # Starting GUI Thread
+        _thread.start_new_thread(Fullscreen_Window.updateGuiTask, (w,))
+        # Starting Camera Thread
+        _thread.start_new_thread(Fullscreen_Window.camTask, (w,))
+        # Starting Gallery View
+        #_thread.start_new_thread(w(),(w,))
+   
+        root.mainloop()
 
     except:
         print ("Error") 
