@@ -165,11 +165,9 @@ from PIL import ImageEnhance
 import glob
 import PIL.ImageTk
 from random import randint
-import _thread
 import threading
 import sys
 import os
-import logging
 import RPi.GPIO as GPIO
 import time
 
@@ -202,6 +200,7 @@ class Fullscreen_Window:
     ShutdownRequest = False
     oldCountdownValue = 0
     resizedImage = None
+    Mutex = threading.Lock()
     
     GPIO.setmode(GPIO.BCM)
 
@@ -298,7 +297,10 @@ class Fullscreen_Window:
         toggleImageHolder = False
  
         while 1 :
-            if self.StateSlideshow == STATE_SLIDESHOW_IDLE: # show slideshow
+            self.Mutex.acquire()
+            state_tmp = self.StateSlideshow
+            self.Mutex.release()
+            if state_tmp == STATE_SLIDESHOW_IDLE: # show slideshow
                 now = time.time()
                 if now - lastChangeTimeSlideshow > SLIDESHOW_CHANGE_TIME_S:
                     if not self.lockVar:
@@ -332,8 +334,11 @@ class Fullscreen_Window:
                         
                     lastChangeTimeSlideshow = now # store time for next iteration
 
-            elif self.StateSlideshow == STATE_SLIDESHOW_BACKGROUND: # show background with countdown
-                if self.Countdown >= 0:
+            elif state_tmp == STATE_SLIDESHOW_BACKGROUND: # show background with countdown
+                self.Mutex.acquire()
+                countdown_tmp = self.Countdown
+                self.Mutex.release()
+                if countdown_tmp >= 0:
                     now = time.time()
                     if now - lastChangeTimeCountdown > DELAY_BETWEEN_COUNTDOWN:
                         # get the background image with already placed effects
@@ -359,9 +364,11 @@ class Fullscreen_Window:
                         
                         lastChangeTimeCountdown = now # store time for next iteration
                         
+                        self.Mutex.acquire()
                         self.Countdown = self.Countdown - 1
+                        self.Mutex.release()
                 
-            elif self.StateSlideshow == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
+            elif state_tmp == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
                 now = time.time()
                 if now - lastChangeTimeCaptured > TIME_TO_SHOW_CAPTURED_IMAGE:
                     if self.CapturedImage != 0: # if a picture was captured
@@ -399,6 +406,8 @@ class Fullscreen_Window:
                         self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
 
                     lastChangeTimeCaptured = now
+                
+                time.sleep(0.05)
                     
     def camTask(self):
         livepreview = False
@@ -432,11 +441,11 @@ class Fullscreen_Window:
             livepreview = False # false by default. Only a few cameras support live preview
 
         while 1:
-            
             # initialze variables for this iteration
             self.takePictureVar = False
+            self.Mutex.acquire()
             self.Countdown = COUNTDOWN_S
-            self.CountdownOngoing = True
+            self.Mutex.release()
             self.TextFailure = ""
             
             ###### CHECK IF WE NEED TO SHOW LIVE PREVIEW OR BACKGROUND
@@ -452,8 +461,9 @@ class Fullscreen_Window:
                 time.sleep(0.05)
 
             # change the shown picture to the background
+            self.Mutex.acquire()
             self.StateSlideshow = STATE_SLIDESHOW_BACKGROUND
-            timeLastIterationStart = time.time()
+            self.Mutex.release()
             
             # set the new filename
             now = time.strftime("%Y%m%d_%H-%M-%S")
@@ -484,14 +494,20 @@ class Fullscreen_Window:
                     pass # TODO start live preview
 
             ###### COUNTDOWN LOOP
-            while self.Countdown > 0:
+            countdownOngoing = True
+            while countdownOngoing:
                 if livepreviewavailable:
                     if CAMERA == CAMERA_PI:
                         mycam.annotate_text = "%s" % self.Countdown
                     elif CAMERA == CAMERA_DSLR:
                         pass # TODO
                 
-                #time.sleep(0.05)
+                self.Mutex.acquire()
+                if self.Countdown <= 0:
+                    countdownOngoing = False
+                self.Mutex.release()
+                
+                time.sleep(0.05)
                 
             # end of loop
             
@@ -538,7 +554,9 @@ class Fullscreen_Window:
                     pass # TODO ggf. die livePreview stoppen
             
             ###### SHOW THE CAPUTRED IMAGE
+            self.Mutex.acquire()
             self.StateSlideshow = STATE_SLIDESHOW_CAPTURED_IMG
+            self.Mutex.release()
             
             ###### DSLR: store image on camera memory card
             if CAMERA == CAMERA_DSLR:
@@ -569,7 +587,9 @@ class Fullscreen_Window:
                 time.sleep(TIME_TO_SHOW_FAILURE_MSG)
             
             ###### CONTINUE WITH SLIDESHOW
+            self.Mutex.acquire()
             self.StateSlideshow = STATE_SLIDESHOW_IDLE
+            self.Mutex.release()
         
 if __name__ == '__main__':
 
@@ -580,12 +600,13 @@ if __name__ == '__main__':
         w = Fullscreen_Window(master=root)
    
         # Starting GUI Thread
-        _thread.start_new_thread(Fullscreen_Window.updateGuiTask, (w,))
+        tGui = threading.Thread(target=Fullscreen_Window.updateGuiTask, args=(w,))
         # Starting Camera Thread
-        _thread.start_new_thread(Fullscreen_Window.camTask, (w,))
-        # Starting Gallery View
-        #_thread.start_new_thread(w(),(w,))
-   
+        tCam = threading.Thread(target=Fullscreen_Window.camTask, args=(w,))
+
+        tGui.start()
+        tCam.start()
+
         root.mainloop()
 
     except:
