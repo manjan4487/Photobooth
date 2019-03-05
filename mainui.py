@@ -77,13 +77,13 @@ TIME_TO_SHOW_FAILURE_MSG = 4
 DELAY_BETWEEN_COUNTDOWN = 0.95
 
 # time like DELAY_BETWEEN_COUNTDOWN but for the last iteration (when the last number is displayed)
-DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION = 0.7
+DELAY_BETWEEN_COUNTDOWN_LAST_ITERATION = 0.9
 
 # define if the live preview should be used if available (Pi Cam and a few DSLR cameras support live preview)
 TRY_TO_USE_LIVE_PREVIEW = False
 
 # background image to show if there is no live preview shown
-BACKGROUND_PICTURE = PHOTOBOOTH_PATH + 'images/background/Background_Mojito.jpg'
+BACKGROUND_PICTURE = PHOTOBOOTH_PATH + 'images/background/Background_Luck.jpg'
 
 # activates a grayscale effect on the background image
 # info: you should edit the background picture on a pc with all effects you want to
@@ -189,7 +189,6 @@ else:
 
 
 class Fullscreen_Window:    
-    lockVar = False
     takePictureVar = False
     StateSlideshow = STATE_SLIDESHOW_IDLE
     Countdown = 0
@@ -201,6 +200,7 @@ class Fullscreen_Window:
     oldCountdownValue = 0
     resizedImage = None
     Mutex = threading.Lock()
+    MutexFileAccess = threading.Lock()
     
     GPIO.setmode(GPIO.BCM)
 
@@ -260,7 +260,7 @@ class Fullscreen_Window:
                 GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN, pull_up_down=pull)
             else:
                 GPIO.setup(SHUTDOWN_GPIO_PIN, GPIO.IN)
-            GPIO.add_event_detect(SHUTDOWN_GPIO_PIN, polarity, callback=self.shutdownButtonEvent, bouncetime=200)
+            GPIO.add_event_detect(SHUTDOWN_GPIO_PIN, polarity, callback=self.shutdownButtonEvent, bouncetime=500)
             
         if FAN_PWM_USE:
             GPIO.setup(FAN_PWM_PIN, GPIO.OUT)
@@ -303,19 +303,20 @@ class Fullscreen_Window:
             if state_tmp == STATE_SLIDESHOW_IDLE: # show slideshow
                 now = time.time()
                 if now - lastChangeTimeSlideshow > SLIDESHOW_CHANGE_TIME_S:
-                    if not self.lockVar:
-                        image_list = []
-                        # Get all Images in photoPath
-                        for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
-                            im=PIL.Image.open(filename)
-                            image_list.append(im.filename)
+                    image_list = []
+                    self.MutexFileAccess.acquire()
+                    # Get all Images in photoPath
+                    for filename in glob.glob("%s*.jpg" % PHOTO_PATH):
+                        image_list.append(filename)
                             
                     if len(image_list) > 0:
                         # Calc. random number for Image which has to be shown
                         randomnumber = randint(0, len(image_list)-1)
+                        
+                        im=PIL.Image.open(image_list[randomnumber])
 
                         # Resize Image, so all Images have the same size
-                        newImgTmp = ImageOps.fit(PIL.Image.open(image_list[randomnumber]), SCREEN_RESOLUTION)
+                        newImgTmp = ImageOps.fit(im, SCREEN_RESOLUTION)
                         
                         # Load the resized Image with PhotoImage and put the image into the canvas object
                         if toggleImageHolder:
@@ -332,6 +333,8 @@ class Fullscreen_Window:
                         self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT,width=INFORMATION_TEXT_WIDTH)
                         self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
                         
+                    self.MutexFileAccess.release()
+                    
                     lastChangeTimeSlideshow = now # store time for next iteration
 
             elif state_tmp == STATE_SLIDESHOW_BACKGROUND: # show background with countdown
@@ -365,7 +368,7 @@ class Fullscreen_Window:
                         lastChangeTimeCountdown = now # store time for next iteration
                         
                         self.Mutex.acquire()
-                        self.Countdown = self.Countdown - 1
+                        self.Countdown = countdown_tmp - 1
                         self.Mutex.release()
                 
             elif state_tmp == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
@@ -406,8 +409,9 @@ class Fullscreen_Window:
                         self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
 
                     lastChangeTimeCaptured = now
-                
-                time.sleep(0.05)
+            
+            # sleep for a short time in this thread
+            time.sleep(0.03)
                     
     def camTask(self):
         livepreview = False
@@ -458,12 +462,15 @@ class Fullscreen_Window:
             while self.takePictureVar is not True:
                 if self.ShutdownRequest: # if there was a shutdown request via external button, shutdown here to perform a clean exit
                     call("sudo shutdown -h now", shell=True)
-                time.sleep(0.05)
+                time.sleep(0.02)
 
             # change the shown picture to the background
             self.Mutex.acquire()
             self.StateSlideshow = STATE_SLIDESHOW_BACKGROUND
             self.Mutex.release()
+            
+            # give the other thread some time to create the new background/image
+            time.sleep(0.075)
             
             # set the new filename
             now = time.strftime("%Y%m%d_%H-%M-%S")
@@ -520,7 +527,7 @@ class Fullscreen_Window:
                 elif CAMERA == CAMERA_DSLR:
                     pass # TODO
                 
-            self.lockVar = True
+            self.MutexFileAccess.acquire()
             self.CapturedImage = 0
             myfile = open(imgPath,'wb')
             self.CapturedImage = imgPath
@@ -545,7 +552,7 @@ class Fullscreen_Window:
                     self.CapturedImage = 0 # we can not show a captured image on the screen
                 
             myfile.close()
-            self.lockVar = False
+            self.MutexFileAccess.release()
             
             if livepreviewavailable:
                 if CAMERA == CAMERA_PI:
