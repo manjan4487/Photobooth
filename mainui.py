@@ -215,7 +215,8 @@ class Fullscreen_Window:
         self.canvas.pack(fill=BOTH, expand=YES)
         
         if LOGGING_ACTIVE:
-            logging.basicConfig(filename=LOGGING_FILE_FOLDER + LOGGING_FILE_PREFIX + time.ctime() + ".log", format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
+            t = time.strftime("%y-%m-%d_%H:%M:%S")
+            logging.basicConfig(filename=LOGGING_FILE_FOLDER + LOGGING_FILE_PREFIX + t + ".log", format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
             
             if CAMERA == CAMERA_DSLR:
                 # configure gphoto logging
@@ -312,11 +313,13 @@ class Fullscreen_Window:
                     if len(image_list) > 0:
                         # Calc. random number for Image which has to be shown
                         randomnumber = randint(0, len(image_list)-1)
-                        
+
                         im=PIL.Image.open(image_list[randomnumber])
 
                         # Resize Image, so all Images have the same size
                         newImgTmp = ImageOps.fit(im, SCREEN_RESOLUTION)
+                        
+                        self.canvas.delete(ALL)
                         
                         # Load the resized Image with PhotoImage and put the image into the canvas object
                         if toggleImageHolder:
