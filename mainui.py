@@ -317,7 +317,7 @@ class Fullscreen_Window:
                         im=PIL.Image.open(image_list[randomnumber])
 
                         # Resize Image, so all Images have the same size
-                        newImgTmp = ImageOps.fit(im, SCREEN_RESOLUTION
+                        newImgTmp = ImageOps.fit(im, SCREEN_RESOLUTION)
                                                  
                         # store the new added elements on canvas to delete them in next iteration
                         # but first add the new elements on canvas to display the new elements
