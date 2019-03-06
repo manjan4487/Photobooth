@@ -293,9 +293,9 @@ class Fullscreen_Window:
         lastChangeTimeSlideshow = 0
         lastChangeTimeCountdown = 0
         lastChangeTimeCaptured = 0
-        image_list = []
         
         toggleImageHolder = False
+        old_items_to_delete = [] # on canvas
  
         while 1 :
             self.Mutex.acquire()
@@ -317,24 +317,34 @@ class Fullscreen_Window:
                         im=PIL.Image.open(image_list[randomnumber])
 
                         # Resize Image, so all Images have the same size
-                        newImgTmp = ImageOps.fit(im, SCREEN_RESOLUTION)
-                        
-                        self.canvas.delete(ALL)
+                        newImgTmp = ImageOps.fit(im, SCREEN_RESOLUTION
+                                                 
+                        # store the new added elements on canvas to delete them in next iteration
+                        # but first add the new elements on canvas to display the new elements
+                        # before removing the old ones
+                        old_items_tmp = []
                         
                         # Load the resized Image with PhotoImage and put the image into the canvas object
                         if toggleImageHolder:
                             newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg2))
                         else:
-                            #newImg = ImageOps.fit(PIL.Image.open(image_list[randomnumber]), SCREEN_RESOLUTION)
                             newImg = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg))
                             
                         toggleImageHolder = not toggleImageHolder
 
                         # refresh overlayed text
-                        self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT,width=INFORMATION_TEXT_WIDTH)
-                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                        old_items_tmp.append(self.canvas.create_text(INFORMATION_TEXT_X,INFORMATION_TEXT_Y,text=INFORMATION_TEXT,font=INFORMATION_TEXT_FONT,width=INFORMATION_TEXT_WIDTH))
+                        old_items_tmp.append(self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH))
+                        
+                        # now the new items are shown on the display
+                        # delete all old items from canvas to free the memory
+                        for item_to_delete in old_items_to_delete:
+                            self.canvas.delete(item_to_delete)
+                        
+                        # and copy the list of new added items
+                        old_items_to_delete = old_items_tmp
                         
                     self.MutexFileAccess.release()
                     
@@ -355,18 +365,29 @@ class Fullscreen_Window:
                         numberPic = numberPic.resize((int(SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR),int(SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR)))
                         newImgTmp.paste(numberPic, (int(SCREEN_RESOLUTION[0]/2-SCREEN_RESOLUTION[0]/COUNTDOWN_WIDTH_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_X,int(SCREEN_RESOLUTION[1]/2-SCREEN_RESOLUTION[1]/COUNTDOWN_HEIGHT_FACTOR/2)+COUNTDOWN_OVERLAY_OFFSET_Y), numberPic)
                         
+                        # temporary variable, for more explanation see state STATE_SLIDESHOW_IDLE
+                        old_items_tmp = []
+                                                 
                         # Load the resized Image with PhotoImage and put the image into the canvas object
                         if toggleImageHolder:
                             newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg2))
                         else:
                             newImg = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg))
                         
                         toggleImageHolder = not toggleImageHolder
                         
                         # refresh overlayed text (just the failure message if available)
-                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                        old_items_tmp.append(self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH))
+                        
+                        # now the new items are shown on the display
+                        # delete all old items from canvas to free the memory
+                        for item_to_delete in old_items_to_delete:
+                            self.canvas.delete(item_to_delete)
+                        
+                        # and copy the list of new added items
+                        old_items_to_delete = old_items_tmp
                         
                         lastChangeTimeCountdown = now # store time for next iteration
                         
@@ -377,6 +398,9 @@ class Fullscreen_Window:
             elif state_tmp == STATE_SLIDESHOW_CAPTURED_IMG: # show the captured picture
                 now = time.time()
                 if now - lastChangeTimeCaptured > TIME_TO_SHOW_CAPTURED_IMAGE:
+                    # temporary variable, for more explanation see state STATE_SLIDESHOW_IDLE
+                    old_items_tmp = []
+                    
                     if self.CapturedImage != 0: # if a picture was captured
                         #Resize Image, so all Images have the same size
                         newImgTmp = ImageOps.fit(PIL.Image.open(self.CapturedImage), SCREEN_RESOLUTION)
@@ -384,16 +408,16 @@ class Fullscreen_Window:
                         # Load the resized Image with PhotoImage and put the image into the canvas object
                         if toggleImageHolder:
                             newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg2))
                         else:
                             newImg = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg))
                             
                         toggleImageHolder = not toggleImageHolder
 
                         # refresh overlayed text
                         # but only when a failure occurred, no info text here
-                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                        old_items_tmp.append(self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH))
                     else: # failure case. Could not capture an image
                         # get the background image with already placed effects
                         newImgTmp  = self.BackgroundImage.copy()
@@ -401,16 +425,24 @@ class Fullscreen_Window:
                         # Load the resized Image with PhotoImage and put the image into the canvas object
                         if toggleImageHolder:
                             newImg2 = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg2)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg2))
                         else:
                             newImg = PIL.ImageTk.PhotoImage(newImgTmp)
-                            self.canvas.create_image(0,0,anchor=NW,image=newImg)
+                            old_items_tmp.append(self.canvas.create_image(0,0,anchor=NW,image=newImg))
                             
                         toggleImageHolder = not toggleImageHolder
                         
                         # refresh overlayed text (just the failure message if available)
-                        self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH)
+                        old_items_tmp.append(self.canvas.create_text(FAILURE_TEXT_X,FAILURE_TEXT_Y,text=self.TextFailure,font=FAILURE_TEXT_FONT,fill=FAILURE_TEXT_COLOR,width=FAILURE_TEXT_WIDTH))
 
+                    # now the new items are shown on the display
+                    # delete all old items from canvas to free the memory
+                    for item_to_delete in old_items_to_delete:
+                        self.canvas.delete(item_to_delete)
+                    
+                    # and copy the list of new added items
+                    old_items_to_delete = old_items_tmp
+                    
                     lastChangeTimeCaptured = now
             
             # sleep for a short time in this thread
@@ -517,7 +549,7 @@ class Fullscreen_Window:
                     countdownOngoing = False
                 self.Mutex.release()
                 
-                time.sleep(0.05)
+                time.sleep(0.03)
                 
             # end of loop
             
