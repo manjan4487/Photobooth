@@ -21,7 +21,7 @@ Features:
 '''
 
 # Script version
-VERSION = 0.05
+VERSION = 0.06
 
 # do not edit the following lines
 CAMERA_PI = 0
