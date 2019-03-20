@@ -645,10 +645,6 @@ if __name__ == '__main__':
         tGui = threading.Thread(target=Fullscreen_Window.updateGuiTask, args=(w,))
         # Starting Camera Thread
         tCam = threading.Thread(target=Fullscreen_Window.camTask, args=(w,))
-       
-        # set threads as daemon such that they are killed whenever the mainloop of the fullscreen window exits
-        t.Gui.daemon = True
-        t.Cam.daemon = True
 
         tGui.start()
         tCam.start()
