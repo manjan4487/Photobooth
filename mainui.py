@@ -214,6 +214,14 @@ class Fullscreen_Window:
         self.canvas = Canvas(master, width=SCREEN_RESOLUTION[0],height=SCREEN_RESOLUTION[1],highlightthickness=0,bd=0,bg="black")
         self.canvas.pack(fill=BOTH, expand=YES)
         
+        # check if the folders already exist
+        if not os.path.exists(PHOTO_PATH):
+            os.makedirs(PHOTO_PATH)
+        if not os.path.exists(TEMP_TRASH_FOLDER):
+            os.makedirs(TEMP_TRASH_FOLDER)
+        if not os.path.exists(LOGGING_FILE_FOLDER):
+            os.makedirs(LOGGING_FILE_FOLDER)
+        
         if LOGGING_ACTIVE:
             t = time.strftime("%y-%m-%d_%H:%M:%S")
             logging.basicConfig(filename=LOGGING_FILE_FOLDER + LOGGING_FILE_PREFIX + t + ".log", format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
@@ -231,12 +239,6 @@ class Fullscreen_Window:
             logging.info("Pi")
         else:
             logging.warning("Unknown! Set a correct camera type!")
-        
-        # check if the folders already exist
-        if not os.path.exists(PHOTO_PATH):
-            os.makedirs(PHOTO_PATH)
-        if not os.path.exists(TEMP_TRASH_FOLDER):
-            os.makedirs(TEMP_TRASH_FOLDER)
             
         # create background image with effect once in init
         self.BackgroundImage = ImageOps.fit(PIL.Image.open(BACKGROUND_PICTURE), SCREEN_RESOLUTION)
