@@ -56,6 +56,8 @@ Short instructions:
 
 `sudo nano /home/pi/.config/lxsession/LXDE-pi/autostart`
 
+In Raspbian Buster use `/etc/xdg/lxsession/LXDE-pi/autostart`
+
 Add the line:
 
 `@ /PATH/TO/YOUR/STARTSCRIPT.sh`, e.g. `@ /home/pi/Desktop/Photobooth/start.sh`
