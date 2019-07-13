@@ -60,7 +60,7 @@ In Raspbian Buster use `/etc/xdg/lxsession/LXDE-pi/autostart`
 
 Add the line:
 
-`@ /PATH/TO/YOUR/STARTSCRIPT.sh`, e.g. `@ /home/pi/Desktop/Photobooth/start.sh`
+`@/PATH/TO/YOUR/STARTSCRIPT.sh`, e.g. `@/home/pi/Desktop/Photobooth/start.sh`
 
 If you have problems, a few tips: add permission to the start script `chmod +x start.sh` or `chmod 755 start.sh`
 
