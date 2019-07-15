@@ -130,7 +130,7 @@ After a reboot, you should be able to access the webserver via 192.168.0.1 from 
 ### Show captured images on webserver
 Install your preferred web gallery or something similar. I used the [PiGallery](https://github.com/bpatrik/PiGallery) and [PiGallery2](https://github.com/bpatrik/pigallery2). I recommend to use the PiGallery2.
 
-## PiGallery2
+#### PiGallery2
 
 Short instructions (used in Raspbian Buster):
 
@@ -171,7 +171,7 @@ Here you can enter your picture folders and very important to change the server 
 
 I also needed to install sqlite manually: `npm install sqlite3 --save`
 
-# Create systemd autostart service (https://www.raspberrypi.org/documentation/linux/usage/systemd.md)
+##### Create systemd autostart service (https://www.raspberrypi.org/documentation/linux/usage/systemd.md)
 
 `sudo nano /etc/systemd/system/photobooth.service`
 
@@ -195,11 +195,11 @@ WantedBy=multi-user.target
 
 You may want to change the executing user. Update your permissions inside the pigallery2 folder.
 
-# Open port 80 via nginx
+##### Open port 80 via nginx
 
 TODO
 
-## PiGallery1
+#### PiGallery1
 
 Short instructions (used in Raspbian Jessie):
 
