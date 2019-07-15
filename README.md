@@ -128,9 +128,80 @@ Change the config file for the access point `sudo nano /etc/default/hostapd` to
 After a reboot, you should be able to access the webserver via 192.168.0.1 from your pi and from other wifi devices.
 
 ### Show captured images on webserver
-Install your preferred web gallery or something similar. You can use the [PiGallery](https://github.com/bpatrik/PiGallery), where you find the necessary installation details.
+Install your preferred web gallery or something similar. I used the [PiGallery](https://github.com/bpatrik/PiGallery) and [PiGallery2](https://github.com/bpatrik/pigallery2). I recommend to use the PiGallery2.
 
-Short instructions:
+## PiGallery2
+
+Short instructions (used in Raspbian Buster):
+
+Install Node.js https://tecadmin.net/install-latest-nodejs-npm-on-debian/
+
+```
+sudo apt-get install curl software-properties-common
+curl -sL https://deb.nodesource.com/setup_12.x | sudo bash -
+sudo apt-get install nodejs
+sudo apt-get install gcc g++ make
+```
+
+Now you can install the gallery. You should use a released version of the PiGallery2. Short instructions:
+
+```
+cd ~
+wget https://github.com/bpatrik/pigallery2/releases/download/1.5.6/pigallery2.zip
+cd pigallery2
+```
+
+Fix all permission issues such that your current user is able to access all files and directories. Then install the npm application:
+
+```
+sudo apt-get install build-essential libkrb5-dev gcc g++
+sudo npm install -g node-gyp
+npm install
+```
+
+If you have still issues installing the pigallery you may need to use another nodejs version. I used version 10.16.0 because I had some installation issues while `npm install`.
+
+After that I run the pigallery for the first time with
+`npm start`.
+
+I got some errors in the console. Stop the application with ctrl-c. The app created a config.json file, edit it with
+nano config.json
+
+Here you can enter your picture folders and very important to change the server port from 80 since this port is only accessible by root. Change it to e.g. 8081.
+
+I also needed to install sqlite manually: `npm install sqlite3 --save`
+
+# Create systemd autostart service (https://www.raspberrypi.org/documentation/linux/usage/systemd.md)
+
+`sudo nano /etc/systemd/system/photobooth.service`
+
+Content:
+
+```
+[Unit]
+Description=Photobooth Webgallery
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node backend/index.js --expose-gc
+WorkingDirectory=/home/pi/pigallery2
+Restart=on-failure
+User=pi
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+
+You may want to change the executing user. Update your permissions inside the pigallery2 folder.
+
+# Open port 80 via nginx
+
+TODO
+
+## PiGallery1
+
+Short instructions (used in Raspbian Jessie):
 
 `sudo apt-get install php5 apache2 php5-gd mysql-server mysql-client php5-mysql` (ignore the mysql packets if you don´t want to use a database)
 
