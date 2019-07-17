@@ -104,7 +104,7 @@ iface wlan0 inet static
   netmask 255.255.255.0
 ``` 
 
-Now we need to configure the access point `sudo nano /etc/hostapd/hostapd.conf`:
+Now we need to configure the access point `sudo nano /etc/hostapd/hostapd.conf` (file should be empty/non-existend, otherwise overwrite it completely):
 
 ```
 interface=wlan0
