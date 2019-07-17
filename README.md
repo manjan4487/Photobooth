@@ -91,7 +91,7 @@ opt router 192.168.0.1
 opt lease 604800
 ```
 
-Edit the folloing line in file `sudo nano /etc/default/udhcpd` to `#DHCPD_ENABLED="no"`
+Edit the following line in file `sudo nano /etc/default/udhcpd` to `#DHCPD_ENABLED="no"` such that is is uncommented.
 
 Change the static ip configuration of the pi via `sudo nano /etc/network/interfaces` to
 
