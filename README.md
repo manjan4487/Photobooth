@@ -197,7 +197,29 @@ You may want to change the executing user. Update your permissions inside the pi
 
 ##### Open port 80 via nginx
 
-TODO
+I recommend to use nginx to forward all request from port 80 (default http port) to the used port (in these install instructions 8081). But you should know that there are also other ways like using iptables.
+
+`sudo apt-get install nginx`
+
+then edit `/etc/nginx/sites-available/default` to make a forward, it should look something like this:
+
+```
+server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+
+        server_name _;
+
+        location / {
+				proxy_pass http://localhost:8081;
+				proxy_http_version 1.1;
+				proxy_set_header Upgrade $http_upgrade;
+				proxy_set_header Connection 'upgrade';
+				proxy_set_header Host $host;
+				proxy_cache_bypass $http_upgrade;
+        }
+}
+```
 
 #### PiGallery1
 
