@@ -67,7 +67,7 @@ If you have problems, a few tips: add permission to the start script `chmod +x s
 Depending on your Raspbian version you need to edit another autostart script, use google or the linked instruction site.
 
 ### Raspberry Pi as Access Point
-I followed the instruction for this [Access Point Guide (german)](https://forum-raspberrypi.de/forum/thread/6902-raspberry-pi-accesspoint-mit-lokalem-webserver-betreiben/).
+I followed the instruction in this [Access Point Guide (german)](https://forum-raspberrypi.de/forum/thread/6902-raspberry-pi-accesspoint-mit-lokalem-webserver-betreiben/), you can probably also use [this one](https://elinux.org/RPI-Wireless-Hotspot).
 
 Short instructions:
 
@@ -97,6 +97,7 @@ Change the static ip configuration of the pi via `sudo nano /etc/network/interfa
 
 ```
 auto lo
+allow-hotplug wlan0
 iface lo inet loopback
 iface eth0 inet dhcp
 iface wlan0 inet static
