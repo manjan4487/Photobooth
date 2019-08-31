@@ -258,7 +258,7 @@ Via `sudo raspi-config` go to `Interfacing Options`, `I2C` and enable the I2C In
 In `sudo nano /boot/config.txt` you should see the line `dtparam=i2c=on`. Add the following line `dtoverlay=i2c-rtc,ds3231`, save and exit the editor. Via `sudo nano /lib/udev/hwclock-set` you need to comment out the following three lines:
 
 ```
-if [ -e /run/system/system ]; then
+if [ -e /run/systemd/system ]; then
 exit 0
 fi
 ```
