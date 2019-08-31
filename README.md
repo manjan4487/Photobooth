@@ -126,6 +126,16 @@ Change the config file for the access point `sudo nano /etc/default/hostapd` to
 
 `DAEMON_CONF="/etc/hostapd/hostapd.conf"`
 
+```
+sudo service hostapd start
+sudo service udhcpd start
+```
+
+```
+sudo update-rc.d hostapd enable
+sudo update-rc.d udhcpd enable
+```
+
 After a reboot, you should be able to access the webserver via 192.168.0.1 from your pi and from other wifi devices.
 
 ### Show captured images on webserver
